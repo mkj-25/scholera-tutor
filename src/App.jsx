@@ -7,30 +7,23 @@ import ChatView from './components/chat/ChatView'
 import NotebookView from './components/notebook/NotebookView'
 import CourseView from './components/course/CourseView'
 import SourcePanel from './components/citations/SourcePanel'
+import AuthScreen from './components/auth/AuthScreen'
+import ProgressOverview from './components/ui/ProgressOverview'
 import { useTheme } from './hooks/useTheme'
 import { useNotebook } from './hooks/useNotebook'
+import { useAuth } from './hooks/useAuth'
 import {
   conversations,
   defaultConversationId,
   emptyConversationId,
+  lectures,
 } from './lib/data'
 import { resolveCitation } from './lib/resolveCitation'
-import { lectures } from './lib/data'
 
-/**
- * App — root component orchestrating all views, state, and navigation.
- *
- * State model (all in plain React hooks):
- * - activeView: 'chat' | 'learn' | 'course'
- * - activeConversationId: which conversation file is loaded
- * - messages: the messages array (loaded from JSON, extended by streaming)
- * - sourcePanel: { isOpen, lecture, slide } for the slide viewer
- * - exploredSlides: Set of "week:slideNumber" keys for exploration tracking
- * - sidebarCollapsed: right sidebar collapsed state
- */
 export default function App() {
   const { theme, toggleTheme } = useTheme()
   const { concepts, saveConcept, removeConcept, isConceptSaved, savedCount } = useNotebook()
+  const { user, login, logout, isAuthenticated } = useAuth()
 
   // Navigation
   const [activeView, setActiveView] = useState('chat')
@@ -39,7 +32,7 @@ export default function App() {
   const [activeConversationId, setActiveConversationId] = useState(defaultConversationId)
   const conversation = conversations[activeConversationId]
 
-  // Messages — initialized from conversation data, extended by new messages
+  // Messages
   const [messageOverrides, setMessageOverrides] = useState({})
   const messages = useMemo(() => {
     const base = conversation.messages || []
@@ -55,9 +48,11 @@ export default function App() {
     slide: null,
   })
 
-  // Explored slides (session-scoped)
+  // Progress overview modal
+  const [progressOpen, setProgressOpen] = useState(false)
+
+  // Explored slides (session-scoped, pre-populated from existing conversation)
   const [exploredSlides, setExploredSlides] = useState(() => {
-    // Pre-populate from existing conversation citations
     const explored = new Set()
     const conv = conversations[defaultConversationId]
     if (conv.messages) {
@@ -78,11 +73,10 @@ export default function App() {
   // Right sidebar collapsed
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
-  // Recent citations for sidebar display
+  // Recent citations
   const recentCitations = useMemo(() => {
     const seen = new Set()
     const recent = []
-    // Walk messages in reverse to get most recent first
     for (let i = messages.length - 1; i >= 0; i--) {
       const msg = messages[i]
       if (msg.citations) {
@@ -102,7 +96,6 @@ export default function App() {
     return recent.slice(0, 8)
   }, [messages])
 
-  // Add a new message to the current conversation
   const handleAddMessage = useCallback((message) => {
     setMessageOverrides(prev => ({
       ...prev,
@@ -112,7 +105,6 @@ export default function App() {
       ],
     }))
 
-    // Track explored slides from new message citations
     if (message.citations?.length > 0) {
       setExploredSlides(prev => {
         const next = new Set(prev)
@@ -127,14 +119,12 @@ export default function App() {
     }
   }, [activeConversationId])
 
-  // Open source panel
   const handleOpenSource = useCallback((resolved) => {
     setSourcePanel({
       isOpen: true,
       lecture: resolved.lecture,
       slide: resolved.slide,
     })
-    // Track as explored
     setExploredSlides(prev => {
       const next = new Set(prev)
       next.add(`${resolved.lecture.week}:${resolved.slide.slide_number}`)
@@ -142,12 +132,10 @@ export default function App() {
     })
   }, [])
 
-  // Close source panel
   const handleCloseSource = useCallback(() => {
     setSourcePanel(prev => ({ ...prev, isOpen: false }))
   }, [])
 
-  // Navigate slides in source panel
   const handleNavigateSlide = useCallback((lecture, slide) => {
     setSourcePanel({ isOpen: true, lecture, slide })
     setExploredSlides(prev => {
@@ -157,7 +145,6 @@ export default function App() {
     })
   }, [])
 
-  // Track viewed slide
   const handleSlideViewed = useCallback((week, slideNumber) => {
     setExploredSlides(prev => {
       const next = new Set(prev)
@@ -166,7 +153,6 @@ export default function App() {
     })
   }, [])
 
-  // Open a slide from the Course view
   const handleOpenSlide = useCallback((lecture, slide) => {
     setSourcePanel({ isOpen: true, lecture, slide })
     setExploredSlides(prev => {
@@ -176,12 +162,20 @@ export default function App() {
     })
   }, [])
 
-  // Switch conversation (demo toggle)
   const handleSwitchConversation = useCallback(() => {
     setActiveConversationId(prev =>
       prev === defaultConversationId ? emptyConversationId : defaultConversationId
     )
   }, [])
+
+  const handleAuth = useCallback((email, name) => {
+    login(email, name)
+  }, [login])
+
+  // Show auth screen if not authenticated
+  if (!isAuthenticated) {
+    return <AuthScreen onAuth={handleAuth} />
+  }
 
   return (
     <div className="h-screen flex flex-col" style={{ backgroundColor: 'var(--color-bg)' }}>
@@ -191,16 +185,17 @@ export default function App() {
         onViewChange={setActiveView}
         theme={theme}
         onToggleTheme={toggleTheme}
-        studentName={conversation.student?.name}
-        onSwitchConversation={handleSwitchConversation}
+        user={user}
+        onLogout={logout}
+        exploredSlides={exploredSlides}
+        savedCount={savedCount}
+        onOpenProgress={() => setProgressOpen(true)}
       />
-
-
 
       {/* Main layout */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left sidebar — desktop only */}
-        <div className="hidden lg:flex w-[250px] flex-shrink-0">
+        <div className="hidden lg:flex w-[240px] flex-shrink-0">
           <CourseSidebar
             course={conversation.course}
             exploredSlides={exploredSlides}
@@ -241,7 +236,7 @@ export default function App() {
         {/* Right sidebar — desktop only, chat view only */}
         {activeView === 'chat' && (
           <div className={`hidden md:flex flex-shrink-0 transition-all duration-300 ${
-            sidebarCollapsed ? 'w-[48px]' : 'w-[280px]'
+            sidebarCollapsed ? 'w-[48px]' : 'w-[272px]'
           }`}>
             <LearningSidebar
               exploredSlides={exploredSlides}
@@ -250,6 +245,7 @@ export default function App() {
               isCollapsed={sidebarCollapsed}
               onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
               onViewChange={setActiveView}
+              onOpenProgress={() => setProgressOpen(true)}
             />
           </div>
         )}
@@ -258,7 +254,7 @@ export default function App() {
       {/* Mobile bottom nav */}
       <MobileNav activeView={activeView} onViewChange={setActiveView} />
 
-      {/* Source panel (desktop) / bottom sheet */}
+      {/* Source panel */}
       <SourcePanel
         isOpen={sourcePanel.isOpen}
         onClose={handleCloseSource}
@@ -266,6 +262,14 @@ export default function App() {
         slide={sourcePanel.slide}
         onNavigate={handleNavigateSlide}
         onSlideViewed={handleSlideViewed}
+      />
+
+      {/* Progress overview modal */}
+      <ProgressOverview
+        isOpen={progressOpen}
+        onClose={() => setProgressOpen(false)}
+        exploredSlides={exploredSlides}
+        savedCount={savedCount}
       />
     </div>
   )

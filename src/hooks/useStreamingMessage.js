@@ -3,24 +3,36 @@ import { useState, useRef, useCallback } from 'react'
 /**
  * useStreamingMessage — wraps mock-stream.mjs to stream AI responses.
  *
+ * Supports two stream modes:
+ * 1. startStream(scenarioId) — streams a predefined scenario (original behavior)
+ * 2. startTextStream(text, citations) — streams arbitrary text with given citations
+ *
  * Exposes:
  * - content: the streamed text accumulated so far
  * - status: 'idle' | 'connecting' | 'streaming' | 'done' | 'stopped' | 'error'
  * - error: error message string when status is 'error'
  * - citations: citations array from the scenario
  * - startStream(scenarioId): begin streaming a scenario
+ * - startTextStream(text, citations): stream arbitrary text
  * - abort(): cancel the current stream (user pressed Stop)
- *
- * Uses the real mock-stream.mjs API:
- * - streamResponse(id, { signal }) — async generator yielding string chunks
- * - getScenario(id) — get full scenario record including citations
- *
- * Handles all edge cases from responses.json:
- * - Normal streaming (plain, code, math, table, long)
- * - Slow first token (~4.2s delay for 'slow' scenario)
- * - Mid-stream error (error-midstream: streams partial then throws)
- * - User cancellation via AbortController
  */
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+/** Split text into small chunks mimicking real streaming tokens */
+function chunkify(text) {
+  const chunks = []
+  let i = 0
+  let seed = 1337 + text.charCodeAt(0)
+  const next = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff)
+
+  while (i < text.length) {
+    const size = 2 + Math.floor(next() * 7)
+    chunks.push(text.slice(i, i + size))
+    i += size
+  }
+  return chunks
+}
 
 export function useStreamingMessage() {
   const [content, setContent] = useState('')
@@ -43,12 +55,10 @@ export function useStreamingMessage() {
   }, [])
 
   const startStream = useCallback(async (scenarioId) => {
-    // Abort any existing stream
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
     }
 
-    // Reset state
     setContent('')
     setError(null)
     setCitations([])
@@ -59,17 +69,13 @@ export function useStreamingMessage() {
     abortControllerRef.current = controller
 
     try {
-      // Dynamic import of mock-stream.mjs from the data directory.
-      // This uses Vite's ability to resolve relative paths at build time.
       const { streamResponse, getScenario } = await import('@data/mock-stream.mjs')
 
-      // Get the scenario metadata (for citations)
       const scenario = getScenario(scenarioId)
       setCitations(scenario.citations || [])
 
       setStatus('streaming')
 
-      // Stream chunks from the async generator
       let accumulated = ''
       for await (const chunk of streamResponse(scenarioId, { signal: controller.signal })) {
         if (controller.signal.aborted) {
@@ -80,19 +86,76 @@ export function useStreamingMessage() {
         setContent(accumulated)
       }
 
-      // Stream completed successfully
       isStreamingRef.current = false
       setStatus('done')
     } catch (err) {
       isStreamingRef.current = false
 
       if (controller.signal.aborted) {
-        // User-initiated abort — already set to 'stopped'
         setStatus('stopped')
         return
       }
 
-      // Genuine error (e.g. error-midstream scenario)
+      setError(err.message || 'An unexpected error occurred.')
+      setStatus('error')
+    } finally {
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null
+      }
+    }
+  }, [])
+
+  /**
+   * Stream arbitrary text with given citations.
+   * Used for topic-aware responses that don't have a scenario ID.
+   */
+  const startTextStream = useCallback(async (text, citationsArg = []) => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+
+    setContent('')
+    setError(null)
+    setCitations(citationsArg)
+    setStatus('connecting')
+    isStreamingRef.current = true
+
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+
+    try {
+      const chunks = chunkify(text)
+
+      // First token delay: 300-600ms
+      await sleep(350)
+      if (controller.signal.aborted) {
+        isStreamingRef.current = false
+        return
+      }
+
+      setStatus('streaming')
+
+      let accumulated = ''
+      for (const chunk of chunks) {
+        if (controller.signal.aborted) {
+          isStreamingRef.current = false
+          return
+        }
+        accumulated += chunk
+        setContent(accumulated)
+        await sleep(14)
+      }
+
+      isStreamingRef.current = false
+      setStatus('done')
+    } catch (err) {
+      isStreamingRef.current = false
+
+      if (controller.signal.aborted) {
+        setStatus('stopped')
+        return
+      }
+
       setError(err.message || 'An unexpected error occurred.')
       setStatus('error')
     } finally {
@@ -115,6 +178,7 @@ export function useStreamingMessage() {
     error,
     citations,
     startStream,
+    startTextStream,
     abort,
     reset,
   }

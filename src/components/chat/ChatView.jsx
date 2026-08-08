@@ -7,6 +7,7 @@ import EmptyState from './EmptyState'
 import DevScenarioTrigger from './DevScenarioTrigger'
 import { useStreamingMessage } from '../../hooks/useStreamingMessage'
 import { matchScenario } from '../../lib/matchScenario'
+import { findTopicResponse, getGenericResponse } from '../../lib/topicResponses'
 
 /**
  * ChatView — the main conversation view.
@@ -34,6 +35,7 @@ export default function ChatView({
     error: streamError,
     citations: streamCitations,
     startStream,
+    startTextStream,
     abort,
     reset: resetStream,
   } = useStreamingMessage()
@@ -102,11 +104,28 @@ export default function ChatView({
       content: text,
     })
 
-    // Match to a scenario and start streaming
+    // First check if it exactly matches a curated scenario prompt
     const scenarioId = matchScenario(text)
-    currentScenarioRef.current = scenarioId
-    startStream(scenarioId)
-  }, [onAddMessage, startStream])
+    const isExactOrKeywordMatch = scenarioId !== 'plain'
+
+    if (isExactOrKeywordMatch) {
+      // Use mock-stream scenario (covers code, math, table, long, refusal, etc.)
+      currentScenarioRef.current = scenarioId
+      startStream(scenarioId)
+    } else {
+      // Try topic-aware response (linear regression, overfitting, etc.)
+      const topicResponse = findTopicResponse(text)
+      if (topicResponse) {
+        currentScenarioRef.current = topicResponse.id
+        startTextStream(topicResponse.text, topicResponse.citations)
+      } else {
+        // Varied generic fallback — avoids always returning same 'plain' scenario
+        const genericResponse = getGenericResponse(text)
+        currentScenarioRef.current = genericResponse.id
+        startTextStream(genericResponse.text, genericResponse.citations)
+      }
+    }
+  }, [onAddMessage, startStream, startTextStream])
 
   const handleDevTrigger = useCallback((prompt, scenarioId) => {
     finalizingRef.current = false

@@ -1,15 +1,8 @@
-import { Lightbulb, BookOpen, ChevronRight, PanelRightClose, PanelRightOpen } from 'lucide-react'
-import { lectures } from '../../lib/data'
-import { citationKey } from '../../lib/resolveCitation'
+import { Lightbulb, BookOpen, PanelRightClose, PanelRightOpen, TrendingUp } from 'lucide-react'
+import { lectures, totalSlides } from '../../lib/data'
 
 /**
- * LearningSidebar — the right column on desktop showing learning summary.
- *
- * Shows:
- * - "Your Learning" summary with count of concepts explored (unique citation slides)
- * - Recent concepts from citations seen this session
- * - Saved count / link to notebook
- * - Collapsible via a toggle button
+ * LearningSidebar — right column showing learning summary + compact progress.
  */
 export default function LearningSidebar({
   exploredSlides,
@@ -18,12 +11,19 @@ export default function LearningSidebar({
   isCollapsed,
   onToggleCollapse,
   onViewChange,
+  onOpenProgress,
 }) {
   const exploredCount = exploredSlides.size
+  const pct = totalSlides > 0 ? Math.round((exploredCount / totalSlides) * 100) : 0
+
+  // Compact ring
+  const r = 18, stroke = 3, vb = 48, cx = 24, cy = 24
+  const circ = 2 * Math.PI * r
+  const offset = circ - (pct / 100) * circ
 
   if (isCollapsed) {
     return (
-      <div className="flex flex-col items-center pt-4 px-1">
+      <div className="flex flex-col items-center pt-4 px-1 border-l border-[var(--color-border)] bg-[var(--color-surface)]">
         <button
           onClick={onToggleCollapse}
           className="p-2 rounded-lg hover:bg-[var(--color-surface-raised)]
@@ -37,10 +37,9 @@ export default function LearningSidebar({
   }
 
   return (
-    <div className="flex flex-col h-full border-l border-[var(--color-border)]
-                    bg-[var(--color-surface)]">
-      {/* Header with collapse button */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-2">
+    <div className="flex flex-col h-full border-l border-[var(--color-border)] bg-[var(--color-surface)]">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-[var(--color-border-subtle)]">
         <span className="text-[10px] font-semibold tracking-wider uppercase text-[var(--color-text-tertiary)]">
           Your Learning
         </span>
@@ -50,63 +49,102 @@ export default function LearningSidebar({
                      text-[var(--color-text-tertiary)] transition-colors duration-200"
           aria-label="Collapse learning sidebar"
         >
-          <PanelRightClose size={16} />
+          <PanelRightClose size={15} />
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-5">
-        {/* Progress summary */}
-          <div className="pb-1">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <div className="text-2xl font-semibold tracking-tight text-[var(--color-text-primary)]">
-                  {exploredCount}
-                </div>
+      <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-4 pt-3">
+        {/* Compact progress widget */}
+        <button
+          onClick={onOpenProgress}
+          className="w-full flex items-center gap-3 p-3 rounded-xl border text-left
+                     transition-all duration-200 group
+                     hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-tint)]"
+          style={{
+            borderColor: 'var(--color-border-subtle)',
+            backgroundColor: 'var(--color-surface-raised)',
+          }}
+          aria-label={`View course progress: ${pct}%`}
+        >
+          {/* Mini ring */}
+          <svg width={vb} height={vb} viewBox={`0 0 ${vb} ${vb}`} className="flex-shrink-0">
+            <circle cx={cx} cy={cy} r={r} fill="none"
+                    stroke="var(--color-border)" strokeWidth={stroke} />
+            <circle cx={cx} cy={cy} r={r} fill="none"
+                    stroke="var(--color-primary)" strokeWidth={stroke}
+                    strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={offset}
+                    transform={`rotate(-90 ${cx} ${cy})`}
+                    style={{ transition: 'stroke-dashoffset 0.6s cubic-bezier(0.16,1,0.3,1)' }} />
+            {/* Center % */}
+            <text x={cx} y={cy + 1} textAnchor="middle" dominantBaseline="middle"
+                  fontSize="10" fontWeight="600" fill="var(--color-text-primary)">
+              {pct}
+            </text>
+          </svg>
 
-                <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">
-                  slides explored
-                </div>
-              </div>
-
-              <button
-                onClick={() => onViewChange('learn')}
-                className="text-left group"
-                aria-label="Open notebook"
-              >
-                <div className="text-2xl font-semibold tracking-tight text-[var(--color-text-primary)]">
-                  {savedCount}
-                </div>
-
-                <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)] group-hover:text-[var(--color-primary)] transition-colors">
-                  concepts saved
-                </div>
-              </button>
+          <div className="flex-1 min-w-0">
+            <div className="text-[11px] font-semibold mb-0.5" style={{ color: 'var(--color-text-primary)' }}>
+              Course Progress
+            </div>
+            <div className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
+              {exploredCount}/{totalSlides} slides explored
             </div>
           </div>
 
-        {/* Recent concepts from citations */}
+          <TrendingUp size={13} className="opacity-40 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                      style={{ color: 'var(--color-primary)' }} />
+        </button>
+
+        {/* Stats row */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="p-2.5 rounded-xl border"
+               style={{ borderColor: 'var(--color-border-subtle)', backgroundColor: 'var(--color-surface-raised)' }}>
+            <div className="text-xl font-semibold leading-none" style={{ color: 'var(--color-text-primary)' }}>
+              {exploredCount}
+            </div>
+            <div className="mt-0.5 text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
+              slides explored
+            </div>
+          </div>
+          <button
+            onClick={() => onViewChange('learn')}
+            className="p-2.5 rounded-xl border text-left transition-all duration-200
+                       hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-tint)]"
+            style={{ borderColor: 'var(--color-border-subtle)', backgroundColor: 'var(--color-surface-raised)' }}
+            aria-label="Open notebook"
+          >
+            <div className="text-xl font-semibold leading-none" style={{ color: 'var(--color-text-primary)' }}>
+              {savedCount}
+            </div>
+            <div className="mt-0.5 text-[10px] group-hover:text-[var(--color-primary)] transition-colors"
+                 style={{ color: 'var(--color-text-tertiary)' }}>
+              concepts saved
+            </div>
+          </button>
+        </div>
+
+        {/* Recently explored */}
         {recentCitations.length > 0 && (
           <div>
-            <h3 className="text-[10px] font-semibold tracking-wider uppercase text-[var(--color-text-tertiary)] mb-2">
+            <h3 className="text-[10px] font-semibold tracking-wider uppercase mb-2"
+                style={{ color: 'var(--color-text-tertiary)' }}>
               Recently Explored
             </h3>
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               {recentCitations.slice(0, 5).map((item, i) => (
                 <div
                   key={i}
-                  className="group px-2 py-2 rounded-lg
-                            hover:bg-[var(--color-surface-raised)]
-                            transition-colors duration-200"
+                  className="px-2 py-1.5 rounded-lg hover:bg-[var(--color-surface-raised)] transition-colors duration-200"
                 >
-                  <div className="flex items-start gap-2">
-                    <span className="w-1.5 h-1.5 mt-1.5 rounded-full bg-[var(--color-primary)] flex-shrink-0" />
-
+                  <div className="flex items-start gap-1.5">
+                    <span className="w-1.5 h-1.5 mt-1.5 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: 'var(--color-primary)' }} />
                     <div className="min-w-0">
-                      <div className="text-[var(--text-caption)] text-[var(--color-text-secondary)] truncate">
+                      <div className="text-[11px] font-medium truncate"
+                           style={{ color: 'var(--color-text-secondary)' }}>
                         {item.title}
                       </div>
-
-                      <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">
+                      <div className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
                         Week {item.week} · Slide {item.slideNumber}
                       </div>
                     </div>
@@ -117,33 +155,46 @@ export default function LearningSidebar({
           </div>
         )}
 
-        {/* Course nav */}
+        {/* Week progress mini bars */}
         <div>
-          <h3 className="text-[10px] font-semibold tracking-wider uppercase text-[var(--color-text-tertiary)] mb-2">
-            Course
+          <h3 className="text-[10px] font-semibold tracking-wider uppercase mb-2"
+              style={{ color: 'var(--color-text-tertiary)' }}>
+            Course Progress
           </h3>
-          <div className="space-y-1">
+          <div className="space-y-2.5">
             {lectures.map((lecture) => {
               const exploredInWeek = lecture.slides.filter(
                 s => exploredSlides.has(`${lecture.week}:${s.slide_number}`)
               ).length
+              const wPct = lecture.slides.length > 0
+                ? Math.round((exploredInWeek / lecture.slides.length) * 100) : 0
 
               return (
                 <button
                   key={lecture.lecture_id}
                   onClick={() => onViewChange('course')}
-                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left
-                             hover:bg-[var(--color-surface-raised)] transition-colors duration-200"
+                  className="w-full text-left"
                 >
-                  <span
-                    className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                      exploredInWeek > 0 ? 'bg-[var(--color-primary)]' : 'border border-[var(--color-border)]'
-                    }`}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[var(--text-caption)] font-medium text-[var(--color-text-secondary)] truncate">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[11px] font-medium"
+                          style={{ color: 'var(--color-text-secondary)' }}>
                       Week {lecture.week}
-                    </div>
+                    </span>
+                    <span className="text-[10px]"
+                          style={{ color: exploredInWeek > 0 ? 'var(--color-primary)' : 'var(--color-text-tertiary)' }}>
+                      {exploredInWeek}/{lecture.slides.length}
+                    </span>
+                  </div>
+                  <div className="h-1 rounded-full overflow-hidden"
+                       style={{ backgroundColor: 'var(--color-border)' }}>
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{
+                        width: `${wPct}%`,
+                        backgroundColor: 'var(--color-primary)',
+                        minWidth: exploredInWeek > 0 ? '4px' : '0',
+                      }}
+                    />
                   </div>
                 </button>
               )

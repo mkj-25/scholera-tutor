@@ -2,15 +2,16 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { Send, Square } from 'lucide-react'
 
 /**
- * Composer — the message input area with send/stop controls.
+ * Composer — premium AI input with glass/raised appearance.
  *
- * - When idle: shows a text input + send button
- * - When streaming: shows a stop button that triggers abort
- * - Auto-resizes the textarea as content grows (up to ~4 lines)
- * - Supports Enter to send, Shift+Enter for newline
+ * - Large rounded textarea
+ * - Focus: subtle blue glow
+ * - Streaming: send → stop button
+ * - Keyboard: Enter to send, Shift+Enter for newline
  */
 export default function Composer({ onSend, onStop, isStreaming, disabled }) {
   const [input, setInput] = useState('')
+  const [focused, setFocused] = useState(false)
   const textareaRef = useRef(null)
 
   const handleSubmit = useCallback(() => {
@@ -18,7 +19,6 @@ export default function Composer({ onSend, onStop, isStreaming, disabled }) {
     if (!trimmed || isStreaming || disabled) return
     onSend(trimmed)
     setInput('')
-    // Reset textarea height
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
     }
@@ -36,61 +36,103 @@ export default function Composer({ onSend, onStop, isStreaming, disabled }) {
     const textarea = textareaRef.current
     if (!textarea) return
     textarea.style.height = 'auto'
-    textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px'
+    textarea.style.height = Math.min(textarea.scrollHeight, 128) + 'px'
   }, [input])
+
+  const hasInput = input.trim().length > 0
 
   return (
     <div
-      className="border-t border-[var(--color-border)] px-4 py-3 sm:px-6"
-      style={{ backgroundColor: 'var(--color-surface)' }}
+      className="border-t px-4 py-3 sm:px-6"
+      style={{
+        borderColor: 'var(--color-border)',
+        backgroundColor: 'var(--color-surface)',
+      }}
     >
-      <div className="flex items-end gap-2 max-w-3xl mx-auto">
-        <div className="flex-1 flex items-end border border-[var(--color-border)] rounded-xl
-                        bg-[var(--color-bg)] px-3.5 py-2.5 transition-colors duration-200
-                        focus-within:border-[var(--color-primary)]">
+      <div className="max-w-3xl mx-auto">
+        <div
+          className="flex items-end gap-2 rounded-2xl border px-4 py-3 transition-all duration-200"
+          style={{
+            backgroundColor: 'var(--color-bg)',
+            borderColor: focused ? 'var(--color-primary)' : 'var(--color-border)',
+            boxShadow: focused
+              ? '0 0 0 3px rgba(37,99,235,0.08)'
+              : '0 1px 4px rgba(16,24,40,0.04)',
+          }}
+        >
           <textarea
             ref={textareaRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask about the course…"
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            placeholder="Ask anything about this course…"
             rows={1}
             disabled={isStreaming || disabled}
             className="flex-1 bg-transparent border-none outline-none resize-none
-                       text-[var(--text-body)] text-[var(--color-text-primary)]
-                       placeholder:text-[var(--color-text-tertiary)]
-                       disabled:opacity-50"
-            style={{ minHeight: '24px', maxHeight: '120px' }}
+                       disabled:opacity-40"
+            style={{
+              fontSize: 'var(--text-body)',
+              color: 'var(--color-text-primary)',
+              minHeight: '24px',
+              maxHeight: '128px',
+              lineHeight: '1.6',
+            }}
             aria-label="Type your question"
           />
+
+          {/* Send / Stop */}
+          {isStreaming ? (
+            <button
+              onClick={onStop}
+              className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl
+                         transition-all duration-150 hover:opacity-80"
+              style={{
+                backgroundColor: 'var(--color-text-primary)',
+                color: 'var(--color-bg)',
+              }}
+              aria-label="Stop generating"
+              title="Stop"
+            >
+              <Square size={14} fill="currentColor" />
+            </button>
+          ) : (
+            <button
+              onClick={handleSubmit}
+              disabled={!hasInput || disabled}
+              className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl
+                         transition-all duration-150
+                         disabled:opacity-25 disabled:cursor-not-allowed"
+              style={{
+                backgroundColor: hasInput ? 'var(--color-primary)' : 'var(--color-surface-raised)',
+                color: hasInput ? 'white' : 'var(--color-text-tertiary)',
+                boxShadow: hasInput ? '0 2px 8px rgba(37,99,235,0.28)' : 'none',
+              }}
+              aria-label="Send message"
+              title="Send (Enter)"
+            >
+              <Send size={15} />
+            </button>
+          )}
         </div>
 
-        {isStreaming ? (
-          <button
-            onClick={onStop}
-            className="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-xl
-                       bg-[var(--color-text-primary)] text-[var(--color-bg)]
-                       hover:opacity-80 transition-opacity duration-200"
-            aria-label="Stop generating"
-          >
-            <Square size={16} fill="currentColor" />
-          </button>
-        ) : (
-          <button
-            onClick={handleSubmit}
-            disabled={!input.trim() || disabled}
-            className="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-xl
-                       transition-all duration-200
-                       disabled:opacity-30 disabled:cursor-not-allowed"
-            style={{
-              backgroundColor: input.trim() ? 'var(--color-primary)' : 'var(--color-surface-raised)',
-              color: input.trim() ? 'white' : 'var(--color-text-tertiary)',
-            }}
-            aria-label="Send message"
-          >
-            <Send size={16} />
-          </button>
-        )}
+        {/* Hint */}
+        <div className="flex items-center justify-between mt-1.5 px-1">
+          <span className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
+            {isStreaming ? (
+              <span className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-primary)] animate-pulse" />
+                Generating…
+              </span>
+            ) : (
+              'Answers grounded in lecture material'
+            )}
+          </span>
+          <span className="text-[10px] hidden sm:block" style={{ color: 'var(--color-text-tertiary)' }}>
+            {isStreaming ? 'Click ■ to stop' : 'Enter to send · Shift+Enter for newline'}
+          </span>
+        </div>
       </div>
     </div>
   )
