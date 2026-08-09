@@ -10,9 +10,17 @@ import { useState, useCallback } from 'react'
  * - citations: array of citation objects from the assistant message
  * - savedAt: ISO timestamp
  * - messageId: the original message ID it was saved from
+ *
+ * Personal notes (separate) have:
+ * - id: unique identifier
+ * - title: user-supplied note title
+ * - content: markdown string
+ * - createdAt: ISO timestamp
+ * - updatedAt: ISO timestamp
  */
 
 const STORAGE_KEY = 'scholera-notebook'
+const NOTES_STORAGE_KEY = 'scholera-personal-notes'
 
 function loadSavedConcepts() {
   try {
@@ -31,8 +39,28 @@ function persistConcepts(concepts) {
   }
 }
 
+function loadPersonalNotes() {
+  try {
+    const stored = localStorage.getItem(NOTES_STORAGE_KEY)
+    return stored ? JSON.parse(stored) : []
+  } catch {
+    return []
+  }
+}
+
+function persistNotes(notes) {
+  try {
+    localStorage.setItem(NOTES_STORAGE_KEY, JSON.stringify(notes))
+  } catch {
+    // fail silently
+  }
+}
+
 export function useNotebook() {
   const [concepts, setConcepts] = useState(loadSavedConcepts)
+  const [personalNotes, setPersonalNotes] = useState(loadPersonalNotes)
+
+  // ── Saved Concepts ──────────────────────────────────────────
 
   const saveConcept = useCallback((concept) => {
     setConcepts(prev => {
@@ -62,11 +90,59 @@ export function useNotebook() {
     return concepts.some(c => c.messageId === messageId)
   }, [concepts])
 
+  // ── Personal Notes ──────────────────────────────────────────
+
+  const addNote = useCallback((title, content) => {
+    const newNote = {
+      id: `note_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      title: title.trim() || 'Untitled Note',
+      content,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+    setPersonalNotes(prev => {
+      const updated = [newNote, ...prev]
+      persistNotes(updated)
+      return updated
+    })
+    return newNote.id
+  }, [])
+
+  const updateNote = useCallback((noteId, { title, content }) => {
+    setPersonalNotes(prev => {
+      const updated = prev.map(n =>
+        n.id === noteId
+          ? {
+              ...n,
+              title: title !== undefined ? (title.trim() || 'Untitled Note') : n.title,
+              content: content !== undefined ? content : n.content,
+              updatedAt: new Date().toISOString(),
+            }
+          : n
+      )
+      persistNotes(updated)
+      return updated
+    })
+  }, [])
+
+  const deleteNote = useCallback((noteId) => {
+    setPersonalNotes(prev => {
+      const updated = prev.filter(n => n.id !== noteId)
+      persistNotes(updated)
+      return updated
+    })
+  }, [])
+
   return {
     concepts,
     saveConcept,
     removeConcept,
     isConceptSaved,
     savedCount: concepts.length,
+    // personal notes
+    personalNotes,
+    addNote,
+    updateNote,
+    deleteNote,
   }
 }

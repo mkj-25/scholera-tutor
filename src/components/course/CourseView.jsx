@@ -1,152 +1,607 @@
-import { useState, useCallback } from 'react'
-import { ChevronDown, ChevronRight, GraduationCap } from 'lucide-react'
-import { lectures, totalSlides } from '../../lib/data'
+import {
+  useEffect,
+  useRef,
+} from 'react'
+import {
+  BookOpen,
+  CheckCircle2,
+  ChevronRight,
+  FileText,
+} from 'lucide-react'
+import {
+  lectures,
+  totalSlides,
+} from '../../lib/data'
 
 /**
- * CourseView — shows the three weeks as a real curriculum.
+ * CourseView
  *
- * Uses actual lecture JSON data. Tracks which slides have been
- * viewed/explored via citations during this session with subtle dot markers.
- * Uses exploration language only — "explored", "viewed" — never "mastered".
+ * Displays the complete course structure.
+ *
+ * selectedWeek:
+ *   The week selected from CourseSidebar.
+ *
+ * When selected:
+ *   - scroll/highlight that lecture
+ *   - show its slides
+ *   - visually distinguish it from the other weeks
+ *
+ * Clicking a slide opens SourcePanel through onOpenSlide.
  */
-export default function CourseView({ exploredSlides, onOpenSlide }) {
-  // Count total explored slides
-  const exploredCount = exploredSlides.size
+export default function CourseView({
+  exploredSlides,
+  selectedWeek,
+  onOpenSlide,
+}) {
+  // ============================================================
+  // TOTAL PROGRESS
+  // ============================================================
+
+  const exploredCount =
+    exploredSlides?.size ?? 0
+
+  const courseProgress =
+    totalSlides > 0
+      ? Math.round(
+          (exploredCount / totalSlides) * 100
+        )
+      : 0
+
+  // ============================================================
+  // AUTO-SCROLL TO SELECTED WEEK
+  // ============================================================
+
+  // Map week number -> section DOM element
+  const weekRefs = useRef({})
+
+  useEffect(() => {
+    if (selectedWeek == null) return
+    const el = weekRefs.current[selectedWeek]
+    if (!el) return
+
+    // Small delay so the view has mounted/transitioned in
+    const timer = setTimeout(() => {
+      const HEADER_OFFSET = 80 // px — clears the fixed header
+      const rect = el.getBoundingClientRect()
+      const scrollParent = el.closest('.overflow-y-auto')
+      if (scrollParent) {
+        const parentRect = scrollParent.getBoundingClientRect()
+        const target =
+          scrollParent.scrollTop +
+          (rect.top - parentRect.top) -
+          HEADER_OFFSET
+        scrollParent.scrollTo({
+          top: Math.max(0, target),
+          behavior: 'smooth',
+        })
+      } else {
+        // Fallback: window scroll
+        const y =
+          window.scrollY +
+          rect.top -
+          HEADER_OFFSET
+        window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' })
+      }
+    }, 80)
+
+    return () => clearTimeout(timer)
+  }, [selectedWeek])
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6">
-      <div className="max-w-2xl mx-auto">
-        {/* Header with dot grid background */}
-        <div className="rounded-2xl p-6 mb-6 bg-dot-grid border border-[var(--color-border)]"
-             style={{ backgroundColor: 'var(--color-surface)' }}>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-                 style={{ backgroundColor: 'var(--color-primary-tint)' }}>
-              <GraduationCap size={20} className="text-[var(--color-primary)]" />
-            </div>
-            <div>
-              <div className="text-[10px] font-semibold tracking-wider uppercase text-[var(--color-text-tertiary)] mb-0.5">
-                CS 4780 · Course Roadmap
-              </div>
-              <h2 className="text-[var(--text-h2)] font-semibold text-[var(--color-text-primary)]"
-                  style={{ fontFamily: 'var(--font-serif)' }}>
-                Machine Learning for Engineers
-              </h2>
-            </div>
-          </div>
-          <p className="text-[var(--text-body-sm)] text-[var(--color-text-secondary)] mt-3">
-            {exploredCount} of {totalSlides} slides explored this session
-          </p>
-        </div>
+    <div
+      className="flex-1 overflow-y-auto"
+      style={{
+        backgroundColor: 'var(--color-bg)',
+      }}
+    >
+      {/* ======================================================
+          COURSE HERO
+      ======================================================= */}
 
-        {/* Week cards */}
-        <div className="space-y-3">
-          {lectures.map((lecture) => (
-            <WeekCard
-              key={lecture.lecture_id}
-              lecture={lecture}
-              exploredSlides={exploredSlides}
-              onOpenSlide={onOpenSlide}
-            />
-          ))}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-/**
- * WeekCard — expandable card for a single lecture/week.
- */
-function WeekCard({ lecture, exploredSlides, onOpenSlide }) {
-  const [isExpanded, setIsExpanded] = useState(false)
-
-  // Count explored slides for this lecture
-  const exploredInWeek = lecture.slides.filter(
-    s => exploredSlides.has(`${lecture.week}:${s.slide_number}`)
-  ).length
-
-  const handleSlideClick = useCallback((slide) => {
-    if (onOpenSlide) {
-      onOpenSlide(lecture, slide)
-    }
-  }, [lecture, onOpenSlide])
-
-  return (
-    <div className="rounded-[var(--radius-card)] border border-[var(--color-border)]
-                    bg-[var(--color-surface)] overflow-hidden">
-      {/* Week header — clickable to expand */}
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center gap-3 px-4 py-3.5 text-left
-                   hover:bg-[var(--color-surface-raised)] transition-colors duration-200"
-        aria-expanded={isExpanded}
-        aria-label={`Week ${lecture.week}: ${lecture.title}`}
+      <section
+        className="relative overflow-hidden
+                   border-b"
+        style={{
+          borderColor:
+            'var(--color-border-subtle)',
+        }}
       >
-        {/* Week number badge */}
-        <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0
-                        text-[var(--text-body-sm)] font-bold"
-             style={{
-               backgroundColor: exploredInWeek > 0 ? 'var(--color-primary-tint)' : 'var(--color-surface-raised)',
-               color: exploredInWeek > 0 ? 'var(--color-primary)' : 'var(--color-text-tertiary)',
-             }}>
-          W{lecture.week}
-        </div>
+        {/* Subtle grid */}
 
-        <div className="flex-1 min-w-0">
-          <div className="text-[var(--text-body)] font-medium text-[var(--color-text-primary)] truncate">
-            {lecture.title}
+        <div
+          className="absolute inset-0 bg-dot-grid
+                     pointer-events-none"
+          style={{
+            opacity: 0.55,
+          }}
+        />
+
+        <div
+          className="relative max-w-5xl mx-auto
+                     px-6 sm:px-8
+                     pt-10 pb-8"
+        >
+          {/* Eyebrow */}
+
+          <div
+            className="flex items-center gap-2
+                       text-[10px] font-semibold
+                       tracking-widest uppercase mb-3"
+            style={{
+              color: 'var(--color-primary)',
+            }}
+          >
+            <BookOpen size={13} />
+
+            Course
           </div>
-          <div className="text-[var(--text-caption)] text-[var(--color-text-secondary)]">
-            {lecture.slides.length} slides
-            {exploredInWeek > 0 && ` · ${exploredInWeek} explored`}
-          </div>
-        </div>
 
-        {isExpanded ? (
-          <ChevronDown size={16} className="text-[var(--color-text-tertiary)] flex-shrink-0" />
-        ) : (
-          <ChevronRight size={16} className="text-[var(--color-text-tertiary)] flex-shrink-0" />
-        )}
-      </button>
+          {/* Heading */}
 
-      {/* Slide list */}
-      {isExpanded && (
-        <div className="border-t border-[var(--color-border-subtle)] px-2 py-1.5">
-          {lecture.slides.map((slide) => {
-            const isExplored = exploredSlides.has(`${lecture.week}:${slide.slide_number}`)
-            return (
-              <button
-                key={slide.slide_number}
-                onClick={() => handleSlideClick(slide)}
-                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left
-                           hover:bg-[var(--color-surface-raised)] transition-colors duration-200"
-                aria-label={`Slide ${slide.slide_number}: ${slide.title}`}
+          <h1
+            className="text-3xl sm:text-4xl
+                       font-semibold leading-tight"
+            style={{
+              color:
+                'var(--color-text-primary)',
+              fontFamily:
+                'var(--font-serif)',
+            }}
+          >
+            Machine Learning for Engineers
+          </h1>
+
+          <p
+            className="text-sm mt-2 max-w-2xl"
+            style={{
+              color:
+                'var(--color-text-secondary)',
+            }}
+          >
+            Explore the lecture material and
+            open individual slides to study the
+            concepts covered in the course.
+          </p>
+
+          {/* Progress */}
+
+          <div className="mt-7 max-w-xl">
+
+            <div
+              className="flex items-center
+                         justify-between mb-2"
+            >
+              <span
+                className="text-xs font-medium"
+                style={{
+                  color:
+                    'var(--color-text-secondary)',
+                }}
               >
-                {/* Explored indicator dot */}
-                <span
-                  className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                    isExplored
-                      ? 'bg-[var(--color-primary)]'
-                      : 'border border-[var(--color-border)]'
-                  }`}
-                  aria-hidden="true"
-                />
+                Course progress
+              </span>
 
-                {/* Slide number pill */}
-                <span className="text-[11px] font-medium text-[var(--color-text-tertiary)] w-6 text-right flex-shrink-0">
-                  {slide.slide_number}
-                </span>
+              <span
+                className="text-xs font-semibold"
+                style={{
+                  color:
+                    'var(--color-primary)',
+                }}
+              >
+                {exploredCount} / {totalSlides}{' '}
+                slides · {courseProgress}%
+              </span>
+            </div>
 
-                {/* Slide title */}
-                <span className="text-[var(--text-body-sm)] text-[var(--color-text-secondary)] truncate">
-                  {slide.title}
-                </span>
-              </button>
-            )
-          })}
+            <div
+              className="h-2 rounded-full
+                         overflow-hidden"
+              style={{
+                backgroundColor:
+                  'var(--color-surface-raised)',
+                border:
+                  '1px solid var(--color-border-subtle)',
+              }}
+            >
+              <div
+                className="h-full rounded-full
+                           transition-all duration-700"
+                style={{
+                  width: `${courseProgress}%`,
+                  background:
+                    'linear-gradient(90deg, var(--color-primary), var(--color-accent-cyan))',
+                  boxShadow:
+                    '0 0 12px color-mix(in srgb, var(--color-primary) 25%, transparent)',
+                }}
+              />
+            </div>
+          </div>
         </div>
-      )}
+      </section>
+
+      {/* ======================================================
+          LECTURE LIST
+      ======================================================= */}
+
+      <div
+        className="max-w-5xl mx-auto
+                   px-6 sm:px-8
+                   py-8 space-y-5"
+      >
+        {lectures.map((lecture) => {
+          const isSelected =
+            selectedWeek === lecture.week
+
+          const exploredInWeek =
+            lecture.slides.filter((slide) =>
+              exploredSlides?.has(
+                `${lecture.week}:${slide.slide_number}`
+              )
+            ).length
+
+          const weekProgress =
+            lecture.slides.length > 0
+              ? Math.round(
+                  (exploredInWeek /
+                    lecture.slides.length) *
+                    100
+                )
+              : 0
+
+          return (
+            <section
+              key={
+                lecture.lecture_id ||
+                lecture.week
+              }
+              id={`course-week-${lecture.week}`}
+              ref={(el) => {
+                weekRefs.current[lecture.week] = el
+              }}
+              className={`
+                course-week-card
+                rounded-2xl
+                border
+                overflow-hidden
+                transition-all
+                duration-500
+                ${
+                  isSelected
+                    ? 'course-week-selected'
+                    : ''
+                }
+              `}
+              style={{
+                backgroundColor:
+                  isSelected
+                    ? 'var(--color-primary-tint)'
+                    : 'var(--color-surface)',
+
+                borderColor:
+                  isSelected
+                    ? 'color-mix(in srgb, var(--color-primary) 35%, var(--color-border))'
+                    : 'var(--color-border-subtle)',
+
+                boxShadow:
+                  isSelected
+                    ? '0 8px 30px color-mix(in srgb, var(--color-primary) 10%, transparent)'
+                    : 'none',
+              }}
+            >
+              {/* =================================================
+                  LECTURE HEADER
+              ================================================== */}
+
+              <div
+                className="px-5 sm:px-6 py-5
+                           flex items-start gap-4"
+              >
+                {/* Week badge */}
+
+                <div
+                  className="w-11 h-11
+                             rounded-xl
+                             flex-shrink-0
+                             flex items-center
+                             justify-center
+                             font-bold text-xs"
+                  style={{
+                    backgroundColor:
+                      isSelected
+                        ? 'var(--color-primary)'
+                        : 'var(--color-surface-raised)',
+
+                    color:
+                      isSelected
+                        ? '#fff'
+                        : 'var(--color-text-secondary)',
+
+                    border:
+                      isSelected
+                        ? '1px solid var(--color-primary)'
+                        : '1px solid var(--color-border-subtle)',
+
+                    boxShadow:
+                      isSelected
+                        ? '0 5px 16px color-mix(in srgb, var(--color-primary) 22%, transparent)'
+                        : 'none',
+                  }}
+                >
+                  W{lecture.week}
+                </div>
+
+                {/* Header content */}
+
+                <div className="flex-1 min-w-0">
+
+                  <div className="flex items-center gap-2">
+
+                    <h2
+                      className="text-lg font-semibold"
+                      style={{
+                        color:
+                          'var(--color-text-primary)',
+                      }}
+                    >
+                      Week {lecture.week}
+                    </h2>
+
+                    {isSelected && (
+                      <span
+                        className="px-2 py-0.5
+                                   rounded-full
+                                   text-[9px]
+                                   font-semibold
+                                   uppercase
+                                   tracking-wider"
+                        style={{
+                          color:
+                            'var(--color-primary)',
+                          backgroundColor:
+                            'var(--color-primary-tint)',
+                          border:
+                            '1px solid color-mix(in srgb, var(--color-primary) 25%, transparent)',
+                        }}
+                      >
+                        Selected
+                      </span>
+                    )}
+
+                  </div>
+
+                  <p
+                    className="text-sm mt-1"
+                    style={{
+                      color:
+                        'var(--color-text-secondary)',
+                    }}
+                  >
+                    {lecture.title}
+                  </p>
+
+                  {/* Week progress */}
+
+                  <div className="mt-3 max-w-sm">
+
+                    <div
+                      className="flex items-center
+                                 justify-between
+                                 text-[10px] mb-1"
+                    >
+                      <span
+                        style={{
+                          color:
+                            'var(--color-text-tertiary)',
+                        }}
+                      >
+                        {exploredInWeek} of{' '}
+                        {lecture.slides.length}{' '}
+                        slides explored
+                      </span>
+
+                      <span
+                        style={{
+                          color:
+                            'var(--color-primary)',
+                        }}
+                      >
+                        {weekProgress}%
+                      </span>
+                    </div>
+
+                    <div
+                      className="h-1 rounded-full
+                                 overflow-hidden"
+                      style={{
+                        backgroundColor:
+                          'var(--color-border-subtle)',
+                      }}
+                    >
+                      <div
+                        className="h-full rounded-full
+                                   transition-all duration-500"
+                        style={{
+                          width: `${weekProgress}%`,
+                          backgroundColor:
+                            'var(--color-primary)',
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* =================================================
+                  SLIDES
+              ================================================== */}
+
+              <div
+                className="border-t px-4 sm:px-6
+                           py-4"
+                style={{
+                  borderColor:
+                    'var(--color-border-subtle)',
+                }}
+              >
+                <div
+                  className="text-[10px]
+                             font-semibold
+                             tracking-widest
+                             uppercase mb-3"
+                  style={{
+                    color:
+                      'var(--color-text-tertiary)',
+                  }}
+                >
+                  Slides ·{' '}
+                  {lecture.slides.length}
+                </div>
+
+                <div className="grid gap-2">
+
+                  {lecture.slides.map(
+                    (slide) => {
+                      const key =
+                        `${lecture.week}:${slide.slide_number}`
+
+                      const explored =
+                        exploredSlides?.has(key)
+
+                      return (
+                        <button
+                          key={
+                            slide.slide_number
+                          }
+                          type="button"
+                          onClick={() =>
+                            onOpenSlide?.(
+                              lecture,
+                              slide
+                            )
+                          }
+                          className="course-slide-item
+                                     group
+                                     w-full
+                                     flex
+                                     items-center
+                                     gap-3
+                                     text-left
+                                     px-3.5
+                                     py-3
+                                     rounded-xl
+                                     border
+                                     transition-all
+                                     duration-200"
+                          style={{
+                            backgroundColor:
+                              'var(--color-surface)',
+
+                            borderColor:
+                              'var(--color-border-subtle)',
+                          }}
+                        >
+                          {/* Icon */}
+
+                          <div
+                            className="w-8 h-8
+                                       rounded-lg
+                                       flex-shrink-0
+                                       flex items-center
+                                       justify-center"
+                            style={{
+                              backgroundColor:
+                                explored
+                                  ? 'var(--color-primary-tint)'
+                                  : 'var(--color-surface-raised)',
+
+                              color:
+                                explored
+                                  ? 'var(--color-primary)'
+                                  : 'var(--color-text-tertiary)',
+                            }}
+                          >
+                            {explored ? (
+                              <CheckCircle2
+                                size={15}
+                              />
+                            ) : (
+                              <FileText
+                                size={15}
+                              />
+                            )}
+                          </div>
+
+                          {/* Slide info */}
+
+                          <div className="flex-1 min-w-0">
+
+                            <div
+                              className="text-xs
+                                         font-semibold"
+                              style={{
+                                color:
+                                  'var(--color-text-primary)',
+                              }}
+                            >
+                              Slide{' '}
+                              {
+                                slide.slide_number
+                              }
+                            </div>
+
+                            <div
+                              className="text-xs
+                                         truncate
+                                         mt-0.5"
+                              style={{
+                                color:
+                                  'var(--color-text-secondary)',
+                              }}
+                            >
+                              {slide.title}
+                            </div>
+                          </div>
+
+                          {/* Explored label */}
+
+                          {explored && (
+                            <span
+                              className="hidden sm:block
+                                         text-[9px]
+                                         font-medium"
+                              style={{
+                                color:
+                                  'var(--color-primary)',
+                              }}
+                            >
+                              Explored
+                            </span>
+                          )}
+
+                          {/* Arrow */}
+
+                          <ChevronRight
+                            size={15}
+                            className="flex-shrink-0
+                                       transition-transform
+                                       duration-200
+                                       group-hover:translate-x-0.5"
+                            style={{
+                              color:
+                                'var(--color-text-tertiary)',
+                            }}
+                          />
+                        </button>
+                      )
+                    }
+                  )}
+
+                </div>
+              </div>
+            </section>
+          )
+        })}
+      </div>
     </div>
   )
 }

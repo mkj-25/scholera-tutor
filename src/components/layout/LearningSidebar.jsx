@@ -155,52 +155,7 @@ export default function LearningSidebar({
           </div>
         )}
 
-        {/* Week progress mini bars */}
-        <div>
-          <h3 className="text-[10px] font-semibold tracking-wider uppercase mb-2"
-              style={{ color: 'var(--color-text-tertiary)' }}>
-            Course Progress
-          </h3>
-          <div className="space-y-2.5">
-            {lectures.map((lecture) => {
-              const exploredInWeek = lecture.slides.filter(
-                s => exploredSlides.has(`${lecture.week}:${s.slide_number}`)
-              ).length
-              const wPct = lecture.slides.length > 0
-                ? Math.round((exploredInWeek / lecture.slides.length) * 100) : 0
-
-              return (
-                <button
-                  key={lecture.lecture_id}
-                  onClick={() => onViewChange('course')}
-                  className="w-full text-left"
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[11px] font-medium"
-                          style={{ color: 'var(--color-text-secondary)' }}>
-                      Week {lecture.week}
-                    </span>
-                    <span className="text-[10px]"
-                          style={{ color: exploredInWeek > 0 ? 'var(--color-primary)' : 'var(--color-text-tertiary)' }}>
-                      {exploredInWeek}/{lecture.slides.length}
-                    </span>
-                  </div>
-                  <div className="h-1 rounded-full overflow-hidden"
-                       style={{ backgroundColor: 'var(--color-border)' }}>
-                    <div
-                      className="h-full rounded-full transition-all duration-500"
-                      style={{
-                        width: `${wPct}%`,
-                        backgroundColor: 'var(--color-primary)',
-                        minWidth: exploredInWeek > 0 ? '4px' : '0',
-                      }}
-                    />
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-        </div>
+        
       </div>
     </div>
   )

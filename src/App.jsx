@@ -7,11 +7,8 @@ import ChatView from './components/chat/ChatView'
 import NotebookView from './components/notebook/NotebookView'
 import CourseView from './components/course/CourseView'
 import SourcePanel from './components/citations/SourcePanel'
-import AuthScreen from './components/auth/AuthScreen'
-import ProgressOverview from './components/ui/ProgressOverview'
 import { useTheme } from './hooks/useTheme'
 import { useNotebook } from './hooks/useNotebook'
-import { useAuth } from './hooks/useAuth'
 import {
   conversations,
   defaultConversationId,
@@ -20,104 +17,206 @@ import {
 } from './lib/data'
 import { resolveCitation } from './lib/resolveCitation'
 
+/**
+ * App — root component orchestrating all views, state, and navigation.
+ *
+ * State:
+ * - activeView: 'chat' | 'learn' | 'course'
+ * - activeConversationId: current conversation
+ * - messages: conversation messages + streamed messages
+ * - sourcePanel: currently opened lecture/slide
+ * - exploredSlides: Set of "week:slide" keys
+ * - sidebarCollapsed: right sidebar state
+ * - selectedWeek: lecture currently selected in Course view
+ */
 export default function App() {
   const { theme, toggleTheme } = useTheme()
-  const { concepts, saveConcept, removeConcept, isConceptSaved, savedCount } = useNotebook()
-  const { user, login, logout, isAuthenticated } = useAuth()
 
-  // Navigation
+  const {
+    concepts,
+    saveConcept,
+    removeConcept,
+    isConceptSaved,
+    savedCount,
+    personalNotes,
+    addNote,
+    updateNote,
+    deleteNote,
+  } = useNotebook()
+
+  // ============================================================
+  // NAVIGATION
+  // ============================================================
+
   const [activeView, setActiveView] = useState('chat')
 
-  // Conversation state
-  const [activeConversationId, setActiveConversationId] = useState(defaultConversationId)
+  // Which week is currently selected in the Course view
+  const [selectedWeek, setSelectedWeek] = useState(null)
+
+  // ============================================================
+  // CONVERSATION
+  // ============================================================
+
+  const [activeConversationId, setActiveConversationId] =
+    useState(defaultConversationId)
+
   const conversation = conversations[activeConversationId]
 
-  // Messages
-  const [messageOverrides, setMessageOverrides] = useState({})
-  const messages = useMemo(() => {
-    const base = conversation.messages || []
-    return messageOverrides[activeConversationId]
-      ? [...base, ...messageOverrides[activeConversationId]]
-      : base
-  }, [conversation, activeConversationId, messageOverrides])
+  // ============================================================
+  // MESSAGES
+  // ============================================================
 
-  // Source panel
+  const [messageOverrides, setMessageOverrides] = useState({})
+
+  const messages = useMemo(() => {
+    const base = conversation?.messages || []
+
+    return messageOverrides[activeConversationId]
+      ? [
+          ...base,
+          ...messageOverrides[activeConversationId],
+        ]
+      : base
+  }, [
+    conversation,
+    activeConversationId,
+    messageOverrides,
+  ])
+
+  // ============================================================
+  // SOURCE PANEL
+  // ============================================================
+
   const [sourcePanel, setSourcePanel] = useState({
     isOpen: false,
     lecture: null,
     slide: null,
   })
 
-  // Progress overview modal
-  const [progressOpen, setProgressOpen] = useState(false)
+  // ============================================================
+  // EXPLORED SLIDES
+  // ============================================================
 
-  // Explored slides (session-scoped, pre-populated from existing conversation)
   const [exploredSlides, setExploredSlides] = useState(() => {
     const explored = new Set()
+
     const conv = conversations[defaultConversationId]
-    if (conv.messages) {
-      conv.messages.forEach(msg => {
-        if (msg.citations) {
-          msg.citations.forEach(c => {
-            const resolved = resolveCitation(c, lectures)
-            if (resolved) {
-              explored.add(`${resolved.week}:${c.slide}`)
-            }
-          })
-        }
+
+    if (conv?.messages) {
+      conv.messages.forEach((msg) => {
+        if (!msg.citations) return
+
+        msg.citations.forEach((citation) => {
+          const resolved = resolveCitation(
+            citation,
+            lectures
+          )
+
+          if (resolved) {
+            explored.add(
+              `${resolved.week}:${citation.slide}`
+            )
+          }
+        })
       })
     }
+
     return explored
   })
 
-  // Right sidebar collapsed
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  // ============================================================
+  // RIGHT SIDEBAR
+  // ============================================================
 
-  // Recent citations
+  const [sidebarCollapsed, setSidebarCollapsed] =
+    useState(false)
+
+  // ============================================================
+  // RECENT CITATIONS
+  // ============================================================
+
   const recentCitations = useMemo(() => {
     const seen = new Set()
     const recent = []
-    for (let i = messages.length - 1; i >= 0; i--) {
+
+    for (
+      let i = messages.length - 1;
+      i >= 0;
+      i--
+    ) {
       const msg = messages[i]
-      if (msg.citations) {
-        for (const c of msg.citations) {
-          const resolved = resolveCitation(c, lectures)
-          if (resolved && !seen.has(`${resolved.week}:${c.slide}`)) {
-            seen.add(`${resolved.week}:${c.slide}`)
-            recent.push({
-              title: resolved.slide.title,
-              week: resolved.week,
-              slideNumber: c.slide,
-            })
-          }
-        }
+
+      if (!msg.citations) continue
+
+      for (const citation of msg.citations) {
+        const resolved = resolveCitation(
+          citation,
+          lectures
+        )
+
+        if (!resolved) continue
+
+        const key =
+          `${resolved.week}:${citation.slide}`
+
+        if (seen.has(key)) continue
+
+        seen.add(key)
+
+        recent.push({
+          title: resolved.slide.title,
+          week: resolved.week,
+          slideNumber: citation.slide,
+        })
       }
     }
+
     return recent.slice(0, 8)
   }, [messages])
 
-  const handleAddMessage = useCallback((message) => {
-    setMessageOverrides(prev => ({
-      ...prev,
-      [activeConversationId]: [
-        ...(prev[activeConversationId] || []),
-        message,
-      ],
-    }))
+  // ============================================================
+  // ADD MESSAGE
+  // ============================================================
 
-    if (message.citations?.length > 0) {
-      setExploredSlides(prev => {
-        const next = new Set(prev)
-        message.citations.forEach(c => {
-          const resolved = resolveCitation(c, lectures)
-          if (resolved) {
-            next.add(`${resolved.week}:${c.slide}`)
-          }
+  const handleAddMessage = useCallback(
+    (message) => {
+      setMessageOverrides((prev) => ({
+        ...prev,
+
+        [activeConversationId]: [
+          ...(prev[activeConversationId] || []),
+          message,
+        ],
+      }))
+
+      // Track citations as explored
+      if (message.citations?.length > 0) {
+        setExploredSlides((prev) => {
+          const next = new Set(prev)
+
+          message.citations.forEach((citation) => {
+            const resolved = resolveCitation(
+              citation,
+              lectures
+            )
+
+            if (resolved) {
+              next.add(
+                `${resolved.week}:${citation.slide}`
+              )
+            }
+          })
+
+          return next
         })
-        return next
-      })
-    }
-  }, [activeConversationId])
+      }
+    },
+    [activeConversationId]
+  )
+
+  // ============================================================
+  // OPEN SOURCE
+  // ============================================================
 
   const handleOpenSource = useCallback((resolved) => {
     setSourcePanel({
@@ -125,87 +224,173 @@ export default function App() {
       lecture: resolved.lecture,
       slide: resolved.slide,
     })
-    setExploredSlides(prev => {
+
+    setExploredSlides((prev) => {
       const next = new Set(prev)
-      next.add(`${resolved.lecture.week}:${resolved.slide.slide_number}`)
+
+      next.add(
+        `${resolved.lecture.week}:${resolved.slide.slide_number}`
+      )
+
       return next
     })
   }, [])
+
+  // ============================================================
+  // CLOSE SOURCE
+  // ============================================================
 
   const handleCloseSource = useCallback(() => {
-    setSourcePanel(prev => ({ ...prev, isOpen: false }))
+    setSourcePanel((prev) => ({
+      ...prev,
+      isOpen: false,
+    }))
   }, [])
 
-  const handleNavigateSlide = useCallback((lecture, slide) => {
-    setSourcePanel({ isOpen: true, lecture, slide })
-    setExploredSlides(prev => {
-      const next = new Set(prev)
-      next.add(`${lecture.week}:${slide.slide_number}`)
-      return next
-    })
+  // ============================================================
+  // NAVIGATE SOURCE SLIDES
+  // ============================================================
+
+  const handleNavigateSlide = useCallback(
+    (lecture, slide) => {
+      setSourcePanel({
+        isOpen: true,
+        lecture,
+        slide,
+      })
+
+      setExploredSlides((prev) => {
+        const next = new Set(prev)
+
+        next.add(
+          `${lecture.week}:${slide.slide_number}`
+        )
+
+        return next
+      })
+    },
+    []
+  )
+
+  // ============================================================
+  // TRACK VIEWED SLIDE
+  // ============================================================
+
+  const handleSlideViewed = useCallback(
+    (week, slideNumber) => {
+      setExploredSlides((prev) => {
+        const next = new Set(prev)
+
+        next.add(`${week}:${slideNumber}`)
+
+        return next
+      })
+    },
+    []
+  )
+
+  // ============================================================
+  // OPEN SLIDE FROM COURSE VIEW
+  // ============================================================
+
+  const handleOpenSlide = useCallback(
+    (lecture, slide) => {
+      setSourcePanel({
+        isOpen: true,
+        lecture,
+        slide,
+      })
+
+      setExploredSlides((prev) => {
+        const next = new Set(prev)
+
+        next.add(
+          `${lecture.week}:${slide.slide_number}`
+        )
+
+        return next
+      })
+    },
+    []
+  )
+
+  // ============================================================
+  // SELECT LECTURE
+  // ============================================================
+
+  const handleSelectLecture = useCallback((week) => {
+    setSelectedWeek(week)
+    setActiveView('course')
   }, [])
 
-  const handleSlideViewed = useCallback((week, slideNumber) => {
-    setExploredSlides(prev => {
-      const next = new Set(prev)
-      next.add(`${week}:${slideNumber}`)
-      return next
-    })
-  }, [])
-
-  const handleOpenSlide = useCallback((lecture, slide) => {
-    setSourcePanel({ isOpen: true, lecture, slide })
-    setExploredSlides(prev => {
-      const next = new Set(prev)
-      next.add(`${lecture.week}:${slide.slide_number}`)
-      return next
-    })
-  }, [])
+  // ============================================================
+  // SWITCH CONVERSATION
+  // ============================================================
 
   const handleSwitchConversation = useCallback(() => {
-    setActiveConversationId(prev =>
-      prev === defaultConversationId ? emptyConversationId : defaultConversationId
+    setActiveConversationId((prev) =>
+      prev === defaultConversationId
+        ? emptyConversationId
+        : defaultConversationId
     )
   }, [])
 
-  const handleAuth = useCallback((email, name) => {
-    login(email, name)
-  }, [login])
-
-  // Show auth screen if not authenticated
-  if (!isAuthenticated) {
-    return <AuthScreen onAuth={handleAuth} />
-  }
+  // ============================================================
+  // RENDER
+  // ============================================================
 
   return (
-    <div className="h-screen flex flex-col" style={{ backgroundColor: 'var(--color-bg)' }}>
-      {/* Header */}
+    <div
+      className="h-screen flex flex-col"
+      style={{
+        backgroundColor: 'var(--color-bg)',
+      }}
+    >
+      {/* ======================================================
+          HEADER
+      ======================================================= */}
+
       <Header
         activeView={activeView}
         onViewChange={setActiveView}
         theme={theme}
         onToggleTheme={toggleTheme}
-        user={user}
-        onLogout={logout}
         exploredSlides={exploredSlides}
         savedCount={savedCount}
-        onOpenProgress={() => setProgressOpen(true)}
       />
 
-      {/* Main layout */}
+      {/* ======================================================
+          MAIN LAYOUT
+      ======================================================= */}
+
       <div className="flex-1 flex overflow-hidden">
-        {/* Left sidebar — desktop only */}
-        <div className="hidden lg:flex w-[240px] flex-shrink-0">
+
+        {/* ====================================================
+            LEFT COURSE SIDEBAR
+        ===================================================== */}
+
+        <div className="hidden lg:flex w-[250px] flex-shrink-0">
           <CourseSidebar
-            course={conversation.course}
+            course={conversation?.course}
             exploredSlides={exploredSlides}
+            selectedWeek={selectedWeek}
+            onSelectLecture={handleSelectLecture}
             onViewChange={setActiveView}
           />
         </div>
 
-        {/* Center — main content area */}
-        <main className="flex-1 flex flex-col min-w-0 overflow-hidden"
-              style={{ backgroundColor: 'var(--color-bg)' }}>
+        {/* ====================================================
+            CENTER
+        ===================================================== */}
+
+        <main
+          className="flex-1 flex flex-col min-w-0 overflow-hidden"
+          style={{
+            backgroundColor: 'var(--color-bg)',
+          }}
+        >
+          {/* CHAT */}
+
           {activeView === 'chat' && (
             <ChatView
               conversation={conversation}
@@ -217,44 +402,77 @@ export default function App() {
             />
           )}
 
+          {/* LEARN */}
+
           {activeView === 'learn' && (
             <NotebookView
               concepts={concepts}
               onRemove={removeConcept}
               onOpenSource={handleOpenSource}
+              personalNotes={personalNotes}
+              onAddNote={addNote}
+              onUpdateNote={updateNote}
+              onDeleteNote={deleteNote}
             />
           )}
+
+          {/* COURSE */}
 
           {activeView === 'course' && (
             <CourseView
               exploredSlides={exploredSlides}
+              selectedWeek={selectedWeek}
               onOpenSlide={handleOpenSlide}
             />
           )}
         </main>
 
-        {/* Right sidebar — desktop only, chat view only */}
+        {/* ====================================================
+            RIGHT LEARNING SIDEBAR
+        ===================================================== */}
+
         {activeView === 'chat' && (
-          <div className={`hidden md:flex flex-shrink-0 transition-all duration-300 ${
-            sidebarCollapsed ? 'w-[48px]' : 'w-[272px]'
-          }`}>
+          <div
+            className={`
+              hidden md:flex
+              flex-shrink-0
+              transition-all duration-300
+              ${
+                sidebarCollapsed
+                  ? 'w-[48px]'
+                  : 'w-[280px]'
+              }
+            `}
+          >
             <LearningSidebar
               exploredSlides={exploredSlides}
               savedCount={savedCount}
               recentCitations={recentCitations}
               isCollapsed={sidebarCollapsed}
-              onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+              onToggleCollapse={() =>
+                setSidebarCollapsed(
+                  !sidebarCollapsed
+                )
+              }
               onViewChange={setActiveView}
-              onOpenProgress={() => setProgressOpen(true)}
             />
           </div>
         )}
       </div>
 
-      {/* Mobile bottom nav */}
-      <MobileNav activeView={activeView} onViewChange={setActiveView} />
+      {/* ======================================================
+          MOBILE NAV
+      ======================================================= */}
 
-      {/* Source panel */}
+      <MobileNav
+        activeView={activeView}
+        onViewChange={setActiveView}
+      />
+
+      {/* ======================================================
+          SOURCE PANEL
+      ======================================================= */}
+
       <SourcePanel
         isOpen={sourcePanel.isOpen}
         onClose={handleCloseSource}
@@ -262,14 +480,6 @@ export default function App() {
         slide={sourcePanel.slide}
         onNavigate={handleNavigateSlide}
         onSlideViewed={handleSlideViewed}
-      />
-
-      {/* Progress overview modal */}
-      <ProgressOverview
-        isOpen={progressOpen}
-        onClose={() => setProgressOpen(false)}
-        exploredSlides={exploredSlides}
-        savedCount={savedCount}
       />
     </div>
   )

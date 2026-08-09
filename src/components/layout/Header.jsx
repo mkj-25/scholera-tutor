@@ -113,35 +113,7 @@ export default function Header({
 
       {/* RIGHT: Controls */}
       <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
-        {/* Compact progress chip */}
-        <button
-          id="header-progress-btn"
-          onClick={onOpenProgress}
-          className="hidden md:flex items-center gap-2 px-2.5 py-1.5 rounded-lg border
-                     transition-all duration-200 hover:border-[var(--color-primary)]
-                     hover:bg-[var(--color-primary-tint)] group"
-          style={{
-            borderColor: 'var(--color-border-subtle)',
-            backgroundColor: 'var(--color-surface-raised)',
-          }}
-          title="View course progress"
-          aria-label={`Course progress: ${pct}%`}
-        >
-          <svg width={vb} height={vb} viewBox={`0 0 ${vb} ${vb}`} className="flex-shrink-0">
-            <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--color-border)" strokeWidth={stroke} />
-            <circle
-              cx={cx} cy={cy} r={r} fill="none"
-              stroke="var(--color-primary)" strokeWidth={stroke}
-              strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={offset}
-              transform={`rotate(-90 ${cx} ${cy})`}
-              style={{ transition: 'stroke-dashoffset 0.6s cubic-bezier(0.16,1,0.3,1)' }}
-            />
-          </svg>
-          <span className="text-[11px] font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
-            {pct}%
-          </span>
-          <TrendingUp size={12} className="opacity-50 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--color-primary)' }} />
-        </button>
+        
 
         {/* Theme toggle */}
         <button
@@ -208,16 +180,7 @@ export default function Header({
                 </div>
               </div>
 
-              {/* Progress link */}
-              <button
-                onClick={() => { setUserMenuOpen(false); onOpenProgress?.() }}
-                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-left text-xs
-                           transition-colors duration-150 hover:bg-[var(--color-surface-raised)]"
-                style={{ color: 'var(--color-text-secondary)' }}
-              >
-                <TrendingUp size={14} />
-                View progress · {pct}%
-              </button>
+              
 
               {/* Logout */}
               <button
