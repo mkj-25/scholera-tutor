@@ -132,9 +132,12 @@ export default function LearningSidebar({
             </h3>
             <div className="space-y-0.5">
               {recentCitations.slice(0, 5).map((item, i) => (
-                <div
+                <button
                   key={i}
-                  className="px-2 py-1.5 rounded-lg hover:bg-[var(--color-surface-raised)] transition-colors duration-200"
+                  onClick={() => onRecentItemClick?.(item)}
+                  className="w-full text-left px-2 py-1.5 rounded-lg hover:bg-[var(--color-surface-raised)]
+                             transition-colors duration-200 cursor-pointer"
+                  aria-label={`Go to Week ${item.week} · Slide ${item.slideNumber}: ${item.title}`}
                 >
                   <div className="flex items-start gap-1.5">
                     <span className="w-1.5 h-1.5 mt-1.5 rounded-full flex-shrink-0"
@@ -149,7 +152,7 @@ export default function LearningSidebar({
                       </div>
                     </div>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           </div>

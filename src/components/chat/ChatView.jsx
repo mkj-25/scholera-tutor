@@ -180,7 +180,7 @@ export default function ChatView({
               }
 
               return (
-                <div key={msg.id}>
+                <div key={msg.id} id={`msg-${msg.id}`}>
                   <AssistantMessage
                     message={msg}
                     isSaved={isConceptSaved(msg.id)}

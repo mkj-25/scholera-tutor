@@ -2,10 +2,11 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { Send, Square } from 'lucide-react'
 
 /**
- * Composer — premium AI input with glass/raised appearance.
+ * Composer — floating glass input bar.
  *
- * - Large rounded textarea
- * - Focus: subtle blue glow
+ * - Floats above the message area with no background panel
+ * - Rounded card with glass blur + shadow
+ * - Focus: subtle blue ring
  * - Streaming: send → stop button
  * - Keyboard: Enter to send, Shift+Enter for newline
  */
@@ -42,22 +43,18 @@ export default function Composer({ onSend, onStop, isStreaming, disabled }) {
   const hasInput = input.trim().length > 0
 
   return (
-    <div
-      className="border-t px-4 py-3 sm:px-6"
-      style={{
-        borderColor: 'var(--color-border)',
-        backgroundColor: 'var(--color-surface)',
-      }}
-    >
+    <div className="px-4 pb-4 pt-2 sm:px-6">
       <div className="max-w-3xl mx-auto">
+
+        {/* Floating glass card — no background panel behind it */}
         <div
-          className="flex items-end gap-2 rounded-2xl border px-4 py-3 transition-all duration-200"
+          className="flex items-end gap-2 rounded-2xl px-3.5 py-2 transition-all duration-200"
           style={{
-            backgroundColor: 'var(--color-bg)',
-            borderColor: focused ? 'var(--color-primary)' : 'var(--color-border)',
-            boxShadow: focused
-              ? '0 0 0 3px rgba(37,99,235,0.08)'
-              : '0 1px 4px rgba(16,24,40,0.04)',
+            backgroundColor: 'var(--glass-bg)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            border: '1px solid var(--glass-border)',
+            boxShadow: '0 4px 24px rgba(16,24,40,0.10), 0 1px 4px rgba(16,24,40,0.06)',
           }}
         >
           <textarea
@@ -70,14 +67,14 @@ export default function Composer({ onSend, onStop, isStreaming, disabled }) {
             placeholder="Ask anything about this course…"
             rows={1}
             disabled={isStreaming || disabled}
-            className="flex-1 bg-transparent border-none outline-none resize-none
-                       disabled:opacity-40"
+            className="flex-1 bg-transparent border-none outline-none resize-none disabled:opacity-40"
             style={{
               fontSize: 'var(--text-body)',
               color: 'var(--color-text-primary)',
               minHeight: '24px',
               maxHeight: '128px',
               lineHeight: '1.6',
+              outline: 'none',
             }}
             aria-label="Type your question"
           />
@@ -86,7 +83,7 @@ export default function Composer({ onSend, onStop, isStreaming, disabled }) {
           {isStreaming ? (
             <button
               onClick={onStop}
-              className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl
+              className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-xl
                          transition-all duration-150 hover:opacity-80"
               style={{
                 backgroundColor: 'var(--color-text-primary)',
@@ -101,7 +98,7 @@ export default function Composer({ onSend, onStop, isStreaming, disabled }) {
             <button
               onClick={handleSubmit}
               disabled={!hasInput || disabled}
-              className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl
+              className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-xl
                          transition-all duration-150
                          disabled:opacity-25 disabled:cursor-not-allowed"
               style={{
@@ -117,12 +114,18 @@ export default function Composer({ onSend, onStop, isStreaming, disabled }) {
           )}
         </div>
 
-        {/* Hint */}
+        {/* Hint row */}
         <div className="flex items-center justify-between mt-1.5 px-1">
           <span className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
             {isStreaming ? (
               <span className="flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-primary)] animate-pulse" />
+                <span
+                  className="w-1.5 h-1.5 rounded-full"
+                  style={{
+                    backgroundColor: 'var(--color-primary)',
+                    animation: 'pulse 1.5s ease-in-out infinite',
+                  }}
+                />
                 Generating…
               </span>
             ) : (

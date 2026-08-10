@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import {
   BookOpen,
   FileText,
@@ -6,66 +6,295 @@ import {
   Lightbulb,
   Plus,
   Pencil,
-  Eye,
   X,
   Save,
   StickyNote,
+  Bold,
+  Italic,
+  Underline,
+  List,
+  ListOrdered,
+  Quote,
+  Code,
+  Minus,
+  Type,
+  Link2,
+  Strikethrough,
 } from 'lucide-react'
 import { resolveCitation } from '../../lib/resolveCitation'
 import { lectures } from '../../lib/data'
-import MarkdownRenderer from '../ui/MarkdownRenderer'
 
 // ─────────────────────────────────────────────────────────────
-//  SLASH COMMAND PALETTE
+//  WYSIWYG TOOLBAR DEFINITION
 // ─────────────────────────────────────────────────────────────
 
-const SLASH_COMMANDS = [
-  { key: 'h1',      label: 'Heading 1',      desc: 'Large section heading',  badge: 'H1'  },
-  { key: 'h2',      label: 'Heading 2',      desc: 'Medium section heading', badge: 'H2'  },
-  { key: 'h3',      label: 'Heading 3',      desc: 'Small section heading',  badge: 'H3'  },
-  { key: 'bold',    label: 'Bold',           desc: '**bold text**',          badge: 'B'   },
-  { key: 'italic',  label: 'Italic',         desc: '*italic text*',          badge: 'I'   },
-  { key: 'code',    label: 'Inline Code',    desc: '`code`',                 badge: '<>'  },
-  { key: 'block',   label: 'Code Block',     desc: 'Fenced code block',      badge: '{ }' },
-  { key: 'bullet',  label: 'Bullet List',    desc: '- list item',            badge: '•'   },
-  { key: 'number',  label: 'Numbered List',  desc: '1. list item',           badge: '1.'  },
-  { key: 'link',    label: 'Link',           desc: '[text](url)',             badge: '↗'   },
-  { key: 'divider', label: 'Divider',        desc: 'Horizontal rule',        badge: '—'   },
-  { key: 'quote',   label: 'Quote',          desc: '> blockquote',           badge: '"'   },
+// Each button calls a handler in the editor.
+// Some use execCommand, headings use insertHTML.
+const TOOLBAR_GROUPS = [
+  [
+    { id: 'h1',         label: 'Heading 1',    icon: null,           shortText: 'H1' },
+    { id: 'h2',         label: 'Heading 2',    icon: null,           shortText: 'H2' },
+    { id: 'h3',         label: 'Heading 3',    icon: null,           shortText: 'H3' },
+  ],
+  [
+    { id: 'bold',       label: 'Bold',         icon: Bold                             },
+    { id: 'italic',     label: 'Italic',       icon: Italic                           },
+    { id: 'underline',  label: 'Underline',    icon: Underline                        },
+    { id: 'strikethrough', label: 'Strikethrough', icon: Strikethrough               },
+  ],
+  [
+    { id: 'insertUnorderedList', label: 'Bullet list',   icon: List                  },
+    { id: 'insertOrderedList',   label: 'Numbered list', icon: ListOrdered           },
+    { id: 'blockquote',          label: 'Quote',         icon: Quote                 },
+  ],
+  [
+    { id: 'code',       label: 'Inline code',  icon: Code                             },
+    { id: 'hr',         label: 'Divider',      icon: Minus                            },
+  ],
 ]
 
-/** Replace the /filter text with formatted markdown and return new text + cursor position */
-function applyCommand(key, text, slashIdx, filterLen) {
-  const pre  = text.slice(0, slashIdx)
-  const post = text.slice(slashIdx + 1 + filterLen)
-  switch (key) {
-    case 'h1':      return { t: pre + '# '           + post, c: slashIdx + 2  }
-    case 'h2':      return { t: pre + '## '          + post, c: slashIdx + 3  }
-    case 'h3':      return { t: pre + '### '         + post, c: slashIdx + 4  }
-    case 'bold':    return { t: pre + '****'         + post, c: slashIdx + 2  }
-    case 'italic':  return { t: pre + '**'           + post, c: slashIdx + 1  }
-    case 'code':    return { t: pre + '``'           + post, c: slashIdx + 1  }
-    case 'block':   return { t: pre + '```\n\n```'   + post, c: slashIdx + 4  }
-    case 'bullet':  return { t: pre + '- '           + post, c: slashIdx + 2  }
-    case 'number':  return { t: pre + '1. '          + post, c: slashIdx + 3  }
-    case 'link':    return { t: pre + '[](url)'      + post, c: slashIdx + 1  }
-    case 'divider': return { t: pre + '\n---\n'      + post, c: slashIdx + 5  }
-    case 'quote':   return { t: pre + '> '           + post, c: slashIdx + 2  }
-    default:        return { t: text,                         c: slashIdx      }
-  }
-}
+// ─────────────────────────────────────────────────────────────
+//  WYSIWYG EDITOR (contenteditable)
+// ─────────────────────────────────────────────────────────────
 
 /**
- * Approximate Y offset (px) of the caret inside a textarea,
- * relative to the textarea's top-left (accounting for scroll).
+ * RichEditor — a contenteditable-based WYSIWYG editor.
+ *
+ * Content is stored as HTML. The toolbar buttons call document.execCommand
+ * (for inline formats + lists) or inject semantic HTML (for headings, code,
+ * blockquote, hr) at the current selection.
+ *
+ * Props:
+ *   html         — current HTML content string
+ *   onChange     — called with new HTML string whenever content changes
+ *   placeholder  — placeholder text
  */
-function getCaretTop(ta, cursorIdx) {
-  if (!ta) return 0
-  const cs = window.getComputedStyle(ta)
-  const lh = parseFloat(cs.lineHeight) || 22
-  const pt = parseFloat(cs.paddingTop) || 20
-  const linesBefore = (ta.value.slice(0, cursorIdx).match(/\n/g) || []).length
-  return pt + linesBefore * lh - ta.scrollTop
+function RichEditor({ html, onChange, placeholder }) {
+  const editorRef = useRef(null)
+  // Track whether we're in a composition session (CJK/autocorrect)
+  const composingRef = useRef(false)
+  // Suppress the first onInput that fires when we set innerHTML externally
+  const externalSetRef = useRef(false)
+
+  // Push incoming html prop into the DOM only when it changes from the outside
+  // (e.g. opening a different note). We skip this while the user is typing.
+  useEffect(() => {
+    const el = editorRef.current
+    if (!el) return
+    // Compare sanitised to avoid cursor-jumping on every keystroke
+    if (el.innerHTML !== html) {
+      externalSetRef.current = true
+      el.innerHTML = html || ''
+    }
+  }, [html])
+
+  // Auto-focus when mounted
+  useEffect(() => {
+    editorRef.current?.focus()
+  }, [])
+
+  const emitChange = useCallback(() => {
+    const el = editorRef.current
+    if (!el) return
+    onChange(el.innerHTML)
+  }, [onChange])
+
+  const handleInput = useCallback(() => {
+    if (externalSetRef.current) { externalSetRef.current = false; return }
+    if (!composingRef.current) emitChange()
+  }, [emitChange])
+
+  const handleCompositionStart = () => { composingRef.current = true }
+  const handleCompositionEnd   = () => { composingRef.current = false; emitChange() }
+
+  // Apply a toolbar action at the current selection
+  const applyFormat = useCallback((id) => {
+    const el = editorRef.current
+    if (!el) return
+    el.focus()
+
+    switch (id) {
+      case 'h1':
+      case 'h2':
+      case 'h3': {
+        const tag = id.toUpperCase() // H1 H2 H3
+        document.execCommand('formatBlock', false, tag)
+        break
+      }
+      case 'blockquote': {
+        document.execCommand('formatBlock', false, 'BLOCKQUOTE')
+        break
+      }
+      case 'code': {
+        // Wrap selection in <code>. If nothing selected, insert placeholder.
+        const sel = window.getSelection()
+        if (!sel || sel.rangeCount === 0) break
+        const range = sel.getRangeAt(0)
+        const selectedText = range.toString()
+        const codeEl = document.createElement('code')
+        codeEl.style.fontFamily = '"SF Mono", "Fira Code", monospace'
+        codeEl.style.fontSize   = '0.875em'
+        codeEl.style.padding    = '0.1em 0.35em'
+        codeEl.style.borderRadius = '4px'
+        codeEl.style.backgroundColor = 'var(--color-surface-raised)'
+        codeEl.style.border   = '1px solid var(--color-border-subtle)'
+        codeEl.style.color    = 'var(--color-text-primary)'
+        codeEl.textContent    = selectedText || 'code'
+        range.deleteContents()
+        range.insertNode(codeEl)
+        // Move cursor to end of inserted node
+        range.setStartAfter(codeEl)
+        range.collapse(true)
+        sel.removeAllRanges()
+        sel.addRange(range)
+        break
+      }
+      case 'hr': {
+        document.execCommand('insertHTML', false,
+          '<hr style="border:none;border-top:1px solid var(--color-border);margin:1rem 0"><br>')
+        break
+      }
+      default:
+        // bold, italic, underline, strikethrough, insertUnorderedList, insertOrderedList
+        document.execCommand(id, false, null)
+        break
+    }
+    emitChange()
+  }, [emitChange])
+
+  // Handle Enter inside a blockquote — exit on double Enter (blank line)
+  const handleKeyDown = useCallback((e) => {
+    if (e.key === 'Enter') {
+      const sel = window.getSelection()
+      if (!sel || !sel.rangeCount) return
+      // If inside a blockquote and the current block is empty, exit the blockquote
+      const block = sel.getRangeAt(0).startContainer.parentElement?.closest('blockquote')
+      if (block) {
+        const range = sel.getRangeAt(0)
+        const text  = range.startContainer.textContent || ''
+        if (text.trim() === '') {
+          e.preventDefault()
+          document.execCommand('formatBlock', false, 'P')
+        }
+      }
+    }
+
+    // Tab → indent
+    if (e.key === 'Tab') {
+      e.preventDefault()
+      document.execCommand('insertHTML', false, '&nbsp;&nbsp;&nbsp;&nbsp;')
+    }
+  }, [])
+
+  const isEmpty = !html || html.replace(/<[^>]*>/g, '').trim() === ''
+
+  return (
+    <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
+      {/* Placeholder */}
+      {isEmpty && (
+        <div
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            top: 0, left: 0, right: 0,
+            padding: '20px 24px',
+            pointerEvents: 'none',
+            fontSize: 'var(--text-body)',
+            color: 'var(--color-text-tertiary)',
+            lineHeight: 1.7,
+            userSelect: 'none',
+          }}
+        >
+          {placeholder || 'Start writing…'}
+        </div>
+      )}
+      <div
+        ref={editorRef}
+        contentEditable
+        suppressContentEditableWarning
+        onInput={handleInput}
+        onCompositionStart={handleCompositionStart}
+        onCompositionEnd={handleCompositionEnd}
+        onKeyDown={handleKeyDown}
+        spellCheck
+        style={{
+          outline: 'none',
+          minHeight: '100%',
+          padding: '20px 24px 40px',
+          fontSize: 'var(--text-body)',
+          lineHeight: 1.75,
+          color: 'var(--color-text-primary)',
+          caretColor: 'var(--color-primary)',
+          overflowY: 'auto',
+          height: '100%',
+          boxSizing: 'border-box',
+          wordBreak: 'break-word',
+        }}
+        className="wysiwyg-editor"
+      />
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+//  TOOLBAR
+// ─────────────────────────────────────────────────────────────
+
+function FormatToolbar({ onFormat }) {
+  return (
+    <div
+      className="flex items-center gap-px flex-wrap flex-shrink-0"
+      style={{
+        padding: '4px 8px',
+        borderBottom: '1px solid var(--color-border-subtle)',
+        backgroundColor: 'var(--color-surface-raised)',
+      }}
+    >
+      {TOOLBAR_GROUPS.map((group, gi) => (
+        <div key={gi} className="flex items-center gap-px">
+          {group.map((btn) => {
+            const Icon = btn.icon
+            return (
+              <button
+                key={btn.id}
+                onMouseDown={(e) => {
+                  // Prevent blur on the contenteditable before execCommand fires
+                  e.preventDefault()
+                  onFormat(btn.id)
+                }}
+                title={btn.label}
+                aria-label={btn.label}
+                className="flex items-center justify-center rounded-md transition-colors duration-150
+                           hover:bg-[var(--color-surface)] hover:text-[var(--color-text-primary)]"
+                style={{
+                  width: 30,
+                  height: 28,
+                  color: 'var(--color-text-secondary)',
+                  fontSize: btn.shortText ? 11 : undefined,
+                  fontWeight: btn.shortText ? 700 : undefined,
+                  fontFamily: btn.shortText ? 'var(--font-sans)' : undefined,
+                  flexShrink: 0,
+                }}
+              >
+                {Icon ? <Icon size={14} strokeWidth={1.8} /> : btn.shortText}
+              </button>
+            )
+          })}
+          {/* Separator between groups */}
+          {gi < TOOLBAR_GROUPS.length - 1 && (
+            <div
+              style={{
+                width: 1,
+                height: 18,
+                backgroundColor: 'var(--color-border-subtle)',
+                margin: '0 4px',
+              }}
+            />
+          )}
+        </div>
+      ))}
+    </div>
+  )
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -81,156 +310,46 @@ export default function NotebookView({
   onUpdateNote,
   onDeleteNote,
 }) {
-  // ── Editor state ─────────────────────────────────────────────
   // null = closed | 'new' = creating | note-id = editing
   const [editorTarget,  setEditorTarget]  = useState(null)
   const [editorTitle,   setEditorTitle]   = useState('')
-  const [editorContent, setEditorContent] = useState('')
-  const [editorTab,     setEditorTab]     = useState('write') // 'write' | 'preview'
+  const [editorHtml,    setEditorHtml]    = useState('')
 
-  // ── Slash menu state ─────────────────────────────────────────
-  // null = closed | { slashIdx, filter, activeIdx }
-  const [slashMenu, setSlashMenu] = useState(null)
-
-  const textareaRef = useRef(null)
-  const menuRef     = useRef(null)
+  // Ref to the RichEditor's applyFormat method (passed via a callback ref)
+  const applyFormatRef = useRef(null)
 
   // ── Editor helpers ────────────────────────────────────────────
 
   const openNew = () => {
     setEditorTarget('new')
     setEditorTitle('')
-    setEditorContent('')
-    setEditorTab('write')
-    setSlashMenu(null)
+    setEditorHtml('')
   }
 
   const openEdit = (note) => {
     setEditorTarget(note.id)
     setEditorTitle(note.title)
-    setEditorContent(note.content)
-    setEditorTab('write')
-    setSlashMenu(null)
+    // Support notes saved as plain markdown (old format) — treat as text content
+    // New notes are saved as HTML. Detect HTML by presence of a tag.
+    const content = note.content || ''
+    const isHtml = /<[a-z][\s\S]*>/i.test(content)
+    setEditorHtml(isHtml ? content : plainToHtml(content))
   }
 
   const closeEditor = () => {
     setEditorTarget(null)
     setEditorTitle('')
-    setEditorContent('')
-    setSlashMenu(null)
+    setEditorHtml('')
   }
 
   const handleSave = () => {
     if (editorTarget === 'new') {
-      onAddNote(editorTitle, editorContent)
+      onAddNote(editorTitle, editorHtml)
     } else {
-      onUpdateNote(editorTarget, { title: editorTitle, content: editorContent })
+      onUpdateNote(editorTarget, { title: editorTitle, content: editorHtml })
     }
     closeEditor()
   }
-
-  // ── Slash menu logic ──────────────────────────────────────────
-
-  const filteredCmds = slashMenu
-    ? SLASH_COMMANDS.filter(cmd =>
-        slashMenu.filter === '' ||
-        cmd.label.toLowerCase().startsWith(slashMenu.filter.toLowerCase()) ||
-        cmd.key.startsWith(slashMenu.filter.toLowerCase())
-      )
-    : []
-
-  const doApplyCommand = (key) => {
-    if (!slashMenu) return
-    const ta = textareaRef.current
-    const { t: newText, c: newCursor } = applyCommand(
-      key, editorContent, slashMenu.slashIdx, slashMenu.filter.length,
-    )
-    setEditorContent(newText)
-    setSlashMenu(null)
-    requestAnimationFrame(() => {
-      if (ta) { ta.focus(); ta.setSelectionRange(newCursor, newCursor) }
-    })
-  }
-
-  // textarea onChange — detect '/' trigger and update filter
-  const handleContentChange = (e) => {
-    const val    = e.target.value
-    const cursor = e.target.selectionStart
-    setEditorContent(val)
-
-    const justTyped = val[cursor - 1]
-
-    // Newly typed '/' at the start of a line
-    if (justTyped === '/') {
-      const prevChar = val[cursor - 2]
-      if (cursor === 1 || prevChar === '\n') {
-        setSlashMenu({ slashIdx: cursor - 1, filter: '', activeIdx: 0 })
-        return
-      }
-    }
-
-    // Update filter if menu is already open
-    if (slashMenu !== null) {
-      const textAfterSlash = val.slice(slashMenu.slashIdx + 1, cursor)
-      if (
-        textAfterSlash.includes('\n') ||
-        cursor <= slashMenu.slashIdx
-      ) {
-        setSlashMenu(null)
-      } else {
-        setSlashMenu(prev =>
-          prev ? { ...prev, filter: textAfterSlash, activeIdx: 0 } : null
-        )
-      }
-    }
-  }
-
-  // textarea onKeyDown — navigate / confirm / dismiss slash menu
-  const handleKeyDown = (e) => {
-    if (!slashMenu || filteredCmds.length === 0) return
-
-    if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      setSlashMenu(prev => prev
-        ? { ...prev, activeIdx: (prev.activeIdx + 1) % filteredCmds.length }
-        : null)
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      setSlashMenu(prev => prev
-        ? { ...prev, activeIdx: (prev.activeIdx - 1 + filteredCmds.length) % filteredCmds.length }
-        : null)
-    } else if (e.key === 'Enter') {
-      const cmd = filteredCmds[slashMenu.activeIdx]
-      if (cmd) { e.preventDefault(); doApplyCommand(cmd.key) }
-    } else if (e.key === 'Escape') {
-      setSlashMenu(null)
-    } else if (e.key === 'Backspace') {
-      const ta = textareaRef.current
-      if (ta && ta.selectionStart <= slashMenu.slashIdx + 1) setSlashMenu(null)
-    }
-  }
-
-  // Close menu on outside click
-  useEffect(() => {
-    if (!slashMenu) return
-    const onDown = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) setSlashMenu(null)
-    }
-    document.addEventListener('mousedown', onDown)
-    return () => document.removeEventListener('mousedown', onDown)
-  }, [slashMenu])
-
-  // Scroll active item into view
-  useEffect(() => {
-    if (!menuRef.current || !slashMenu) return
-    const active = menuRef.current.querySelector('[data-active="true"]')
-    if (active) active.scrollIntoView({ block: 'nearest' })
-  }, [slashMenu?.activeIdx])
-
-  // Compute where to place the menu
-  const menuTop = slashMenu && textareaRef.current
-    ? getCaretTop(textareaRef.current, slashMenu.slashIdx) + 26
-    : 0
 
   const isEmpty = concepts.length === 0 && personalNotes.length === 0
 
@@ -285,16 +404,14 @@ export default function NotebookView({
   }
 
   // ─────────────────────────────────────────────────────────────
-  //  NOTE EDITOR
+  //  NOTE EDITOR (WYSIWYG)
   // ─────────────────────────────────────────────────────────────
 
   if (editorTarget !== null) {
     return (
-      <div
-        className="flex-1 flex flex-col"
-        style={{ minHeight: 0 }}
-      >
-        {/* ── Toolbar ── */}
+      <div className="flex-1 flex flex-col" style={{ minHeight: 0 }}>
+
+        {/* ── Top bar ── */}
         <div
           className="flex items-center gap-3 px-5 py-3 border-b flex-shrink-0"
           style={{
@@ -309,35 +426,6 @@ export default function NotebookView({
           >
             {editorTarget === 'new' ? 'New Note' : 'Edit Note'}
           </span>
-
-          {/* Write / Preview toggle */}
-          <div
-            className="flex rounded-lg overflow-hidden border text-xs font-medium"
-            style={{ borderColor: 'var(--color-border-subtle)' }}
-          >
-            <button
-              onClick={() => setEditorTab('write')}
-              className="px-3 py-1.5 flex items-center gap-1.5 transition-colors duration-150"
-              style={{
-                backgroundColor: editorTab === 'write' ? 'var(--color-primary-tint)' : 'transparent',
-                color: editorTab === 'write' ? 'var(--color-primary)' : 'var(--color-text-secondary)',
-              }}
-            >
-              <Pencil size={11} />
-              Write
-            </button>
-            <button
-              onClick={() => setEditorTab('preview')}
-              className="px-3 py-1.5 flex items-center gap-1.5 transition-colors duration-150"
-              style={{
-                backgroundColor: editorTab === 'preview' ? 'var(--color-primary-tint)' : 'transparent',
-                color: editorTab === 'preview' ? 'var(--color-primary)' : 'var(--color-text-secondary)',
-              }}
-            >
-              <Eye size={11} />
-              Preview
-            </button>
-          </div>
 
           <button
             onClick={handleSave}
@@ -363,7 +451,7 @@ export default function NotebookView({
         {/* ── Title ── */}
         <div
           className="px-5 py-3 border-b flex-shrink-0"
-          style={{ borderColor: 'var(--color-border-subtle)' }}
+          style={{ borderColor: 'var(--color-border-subtle)', backgroundColor: 'var(--color-surface)' }}
         >
           <input
             type="text"
@@ -375,205 +463,20 @@ export default function NotebookView({
           />
         </div>
 
-        {/* ── Body (write / preview) — position:relative so menu + absolute panes work ── */}
+        {/* ── Formatting toolbar ── */}
+        <FormatToolbar onFormat={(id) => applyFormatRef.current?.(id)} />
+
+        {/* ── WYSIWYG body ── */}
         <div
           className="flex-1"
-          style={{ position: 'relative', minHeight: 0, overflow: 'hidden' }}
+          style={{ position: 'relative', minHeight: 0, overflow: 'hidden', backgroundColor: 'var(--color-surface)' }}
         >
-          {editorTab === 'write' ? (
-            <>
-              {/* Hint bar */}
-              <div
-                className="flex items-center gap-1.5 px-5 py-1.5 border-b text-[11px]"
-                style={{
-                  color: 'var(--color-text-tertiary)',
-                  borderColor: 'var(--color-border-subtle)',
-                  backgroundColor: 'var(--color-surface-raised)',
-                  position: 'absolute',
-                  top: 0, left: 0, right: 0,
-                  zIndex: 1,
-                }}
-              >
-                <span
-                  className="font-mono font-semibold px-1 rounded"
-                  style={{
-                    backgroundColor: 'var(--color-border-subtle)',
-                    color: 'var(--color-primary)',
-                  }}
-                >
-                  /
-                </span>
-                Type&nbsp;<strong>/</strong>&nbsp;at the start of a line to insert formatting
-              </div>
-
-              {/* Textarea — absolutely fills the body, padded for hint bar (28px) */}
-              <textarea
-                ref={textareaRef}
-                value={editorContent}
-                onChange={handleContentChange}
-                onKeyDown={handleKeyDown}
-                placeholder={'Start writing…\n\nType / at the start of a line to insert headings, lists, code blocks, and more.'}
-                className="resize-none outline-none text-sm font-mono leading-relaxed"
-                style={{
-                  position: 'absolute',
-                  top: 28,   // below hint bar
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  width: '100%',
-                  padding: '20px',
-                  background: 'transparent',
-                  color: 'var(--color-text-primary)',
-                  caretColor: 'var(--color-primary)',
-                  overflowY: 'auto',
-                  boxSizing: 'border-box',
-                }}
-                autoFocus
-              />
-
-              {/* ── Slash command menu ── */}
-              {slashMenu && filteredCmds.length > 0 && (
-                <div
-                  ref={menuRef}
-                  style={{
-                    position: 'absolute',
-                    // +28 accounts for the hint bar offset
-                    top: Math.max(32, menuTop + 28),
-                    left: 20,
-                    zIndex: 50,
-                    width: 260,
-                    maxHeight: 300,
-                    overflowY: 'auto',
-                    borderRadius: 'var(--radius-card)',
-                    border: '1px solid var(--color-border)',
-                    backgroundColor: 'var(--color-surface)',
-                    boxShadow: 'var(--shadow-glass)',
-                  }}
-                >
-                  {/* Menu header */}
-                  <div
-                    className="px-3 py-2 text-[10px] font-semibold tracking-widest uppercase border-b"
-                    style={{
-                      color: 'var(--color-text-tertiary)',
-                      borderColor: 'var(--color-border-subtle)',
-                    }}
-                  >
-                    {slashMenu.filter ? `"${slashMenu.filter}" — ` : ''}{filteredCmds.length} option{filteredCmds.length !== 1 ? 's' : ''}
-                  </div>
-
-                  {/* Menu items */}
-                  <div className="py-1">
-                    {filteredCmds.map((cmd, i) => {
-                      const isActive = i === slashMenu.activeIdx
-                      return (
-                        <button
-                          key={cmd.key}
-                          data-active={isActive}
-                          onMouseDown={(e) => {
-                            e.preventDefault() // prevent textarea blur
-                            doApplyCommand(cmd.key)
-                          }}
-                          onMouseEnter={() =>
-                            setSlashMenu(prev => prev ? { ...prev, activeIdx: i } : null)
-                          }
-                          className="w-full flex items-center gap-3 px-3 py-2 text-left transition-colors duration-100"
-                          style={{
-                            backgroundColor: isActive
-                              ? 'var(--color-primary-tint)'
-                              : 'transparent',
-                          }}
-                        >
-                          {/* Badge */}
-                          <span
-                            className="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center text-[11px] font-bold"
-                            style={{
-                              backgroundColor: isActive
-                                ? 'var(--color-primary)'
-                                : 'var(--color-surface-raised)',
-                              color: isActive ? '#fff' : 'var(--color-text-secondary)',
-                              border: '1px solid var(--color-border-subtle)',
-                              fontFamily: 'var(--font-sans)',
-                            }}
-                          >
-                            {cmd.badge}
-                          </span>
-
-                          {/* Label + desc */}
-                          <div className="flex-1 min-w-0">
-                            <div
-                              className="text-xs font-semibold"
-                              style={{
-                                color: isActive
-                                  ? 'var(--color-primary)'
-                                  : 'var(--color-text-primary)',
-                              }}
-                            >
-                              {cmd.label}
-                            </div>
-                            <div
-                              className="text-[11px] font-mono truncate"
-                              style={{ color: 'var(--color-text-tertiary)' }}
-                            >
-                              {cmd.desc}
-                            </div>
-                          </div>
-                        </button>
-                      )
-                    })}
-                  </div>
-
-                  {/* Keyboard hint */}
-                  <div
-                    className="px-3 py-2 flex items-center gap-3 border-t text-[10px]"
-                    style={{
-                      borderColor: 'var(--color-border-subtle)',
-                      color: 'var(--color-text-tertiary)',
-                    }}
-                  >
-                    <span>↑↓ navigate</span>
-                    <span>↵ select</span>
-                    <span>Esc dismiss</span>
-                  </div>
-                </div>
-              )}
-            </>
-          ) : (
-            /* ── Preview pane ── */
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                overflowY: 'auto',
-                padding: '24px 24px 32px',
-              }}
-            >
-              {editorContent.trim() ? (
-                <div style={{ maxWidth: 680, margin: '0 auto' }}>
-                  {editorTitle.trim() && (
-                    <h1
-                      className="font-semibold mb-5"
-                      style={{
-                        fontSize: 'var(--text-h1)',
-                        color: 'var(--color-text-primary)',
-                        fontFamily: 'var(--font-serif)',
-                        lineHeight: 1.25,
-                      }}
-                    >
-                      {editorTitle}
-                    </h1>
-                  )}
-                  <MarkdownRenderer content={editorContent} />
-                </div>
-              ) : (
-                <p
-                  className="text-sm italic"
-                  style={{ color: 'var(--color-text-tertiary)' }}
-                >
-                  Nothing to preview yet — switch to Write and add some content.
-                </p>
-              )}
-            </div>
-          )}
+          <RichEditorWithRef
+            html={editorHtml}
+            onChange={setEditorHtml}
+            placeholder={'Start writing…\n\nUse the toolbar above to apply headings, bold, lists, and more.'}
+            applyFormatRef={applyFormatRef}
+          />
         </div>
       </div>
     )
@@ -669,6 +572,191 @@ export default function NotebookView({
 }
 
 // ─────────────────────────────────────────────────────────────
+//  RichEditor with imperative handle for toolbar
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Wraps RichEditor and exposes applyFormat imperatively via a ref callback
+ * so the toolbar (which lives outside the editor) can trigger formats.
+ */
+function RichEditorWithRef({ html, onChange, placeholder, applyFormatRef }) {
+  const editorRef = useRef(null)
+  const composingRef = useRef(false)
+  const externalSetRef = useRef(false)
+
+  // Sync html → DOM when the prop changes externally
+  useEffect(() => {
+    const el = editorRef.current
+    if (!el) return
+    if (el.innerHTML !== html) {
+      externalSetRef.current = true
+      el.innerHTML = html || ''
+    }
+  }, [html])
+
+  // Auto-focus
+  useEffect(() => {
+    editorRef.current?.focus()
+  }, [])
+
+  const emitChange = useCallback(() => {
+    if (editorRef.current) onChange(editorRef.current.innerHTML)
+  }, [onChange])
+
+  // Expose applyFormat to parent via ref
+  useEffect(() => {
+    applyFormatRef.current = (id) => {
+      const el = editorRef.current
+      if (!el) return
+      el.focus()
+      applyFormatAction(id, el, emitChange)
+    }
+  }, [applyFormatRef, emitChange])
+
+  const handleInput = useCallback(() => {
+    if (externalSetRef.current) { externalSetRef.current = false; return }
+    if (!composingRef.current) emitChange()
+  }, [emitChange])
+
+  const handleKeyDown = useCallback((e) => {
+    // Exit blockquote on empty line
+    if (e.key === 'Enter') {
+      const sel = window.getSelection()
+      if (sel?.rangeCount) {
+        const block = sel.getRangeAt(0).startContainer.parentElement?.closest('blockquote')
+        if (block && (sel.getRangeAt(0).startContainer.textContent || '').trim() === '') {
+          e.preventDefault()
+          document.execCommand('formatBlock', false, 'P')
+        }
+      }
+    }
+    // Tab for indentation
+    if (e.key === 'Tab') {
+      e.preventDefault()
+      document.execCommand('insertHTML', false, '\u00a0\u00a0\u00a0\u00a0')
+    }
+  }, [])
+
+  const isEmpty = !html || html.replace(/<[^>]*>/g, '').trim() === ''
+
+  return (
+    <div style={{ position: 'relative', flex: 1, height: '100%', display: 'flex', flexDirection: 'column' }}>
+      {isEmpty && (
+        <div
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            top: 0, left: 0, right: 0,
+            padding: '20px 24px',
+            pointerEvents: 'none',
+            fontSize: 'var(--text-body)',
+            color: 'var(--color-text-tertiary)',
+            lineHeight: 1.7,
+            userSelect: 'none',
+          }}
+        >
+          Start writing…
+        </div>
+      )}
+      <div
+        ref={editorRef}
+        contentEditable
+        suppressContentEditableWarning
+        onInput={handleInput}
+        onCompositionStart={() => { composingRef.current = true }}
+        onCompositionEnd={() => { composingRef.current = false; emitChange() }}
+        onKeyDown={handleKeyDown}
+        spellCheck
+        style={{
+          outline: 'none',
+          flex: 1,
+          padding: '20px 24px 40px',
+          fontSize: 'var(--text-body)',
+          lineHeight: 1.75,
+          color: 'var(--color-text-primary)',
+          caretColor: 'var(--color-primary)',
+          overflowY: 'auto',
+          boxSizing: 'border-box',
+          wordBreak: 'break-word',
+        }}
+        className="wysiwyg-editor"
+      />
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+//  FORMAT ACTION — shared logic called by toolbar buttons
+// ─────────────────────────────────────────────────────────────
+
+function applyFormatAction(id, el, emitChange) {
+  switch (id) {
+    case 'h1':
+    case 'h2':
+    case 'h3':
+      document.execCommand('formatBlock', false, id.toUpperCase())
+      break
+
+    case 'blockquote':
+      document.execCommand('formatBlock', false, 'BLOCKQUOTE')
+      break
+
+    case 'code': {
+      const sel = window.getSelection()
+      if (!sel || sel.rangeCount === 0) break
+      const range = sel.getRangeAt(0)
+      const text  = range.toString()
+      const code  = document.createElement('code')
+      // inline styling so it works without external CSS
+      Object.assign(code.style, {
+        fontFamily: '"SF Mono","Fira Code","Cascadia Code",monospace',
+        fontSize: '0.875em',
+        padding: '0.1em 0.4em',
+        borderRadius: '4px',
+        backgroundColor: 'var(--color-surface-raised)',
+        border: '1px solid var(--color-border-subtle)',
+        color: 'var(--color-text-primary)',
+      })
+      code.textContent = text || 'code'
+      range.deleteContents()
+      range.insertNode(code)
+      // Place cursor after the node
+      const after = document.createRange()
+      after.setStartAfter(code)
+      after.collapse(true)
+      sel.removeAllRanges()
+      sel.addRange(after)
+      break
+    }
+
+    case 'hr':
+      document.execCommand('insertHTML', false,
+        '<hr style="border:none;border-top:1px solid var(--color-border);margin:1.25rem 0"><br>')
+      break
+
+    default:
+      // bold, italic, underline, strikethrough,
+      // insertUnorderedList, insertOrderedList
+      document.execCommand(id, false, null)
+      break
+  }
+  emitChange()
+}
+
+// ─────────────────────────────────────────────────────────────
+//  UTILITY — convert old plain-text / markdown notes to HTML
+// ─────────────────────────────────────────────────────────────
+
+function plainToHtml(text) {
+  if (!text) return ''
+  // Very simple: wrap each paragraph in <p>, preserve line breaks
+  return text
+    .split(/\n\n+/)
+    .map(para => `<p>${para.replace(/\n/g, '<br>')}</p>`)
+    .join('')
+}
+
+// ─────────────────────────────────────────────────────────────
 //  PERSONAL NOTE CARD
 // ─────────────────────────────────────────────────────────────
 
@@ -676,6 +764,12 @@ function PersonalNoteCard({ note, onEdit, onDelete }) {
   const updatedDate = note.updatedAt
     ? new Date(note.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     : null
+
+  // Strip HTML tags for the snippet preview
+  const snippetText = (note.content || '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
 
   return (
     <div
@@ -716,12 +810,12 @@ function PersonalNoteCard({ note, onEdit, onDelete }) {
         </div>
       </div>
 
-      {note.content.trim() && (
+      {snippetText && (
         <p
           className="leading-relaxed mb-2 line-clamp-3"
           style={{ fontSize: 'var(--text-body-sm)', color: 'var(--color-text-secondary)' }}
         >
-          {note.content.replace(/[#*`_~[\]]/g, '').trim()}
+          {snippetText}
         </p>
       )}
 
@@ -735,7 +829,7 @@ function PersonalNoteCard({ note, onEdit, onDelete }) {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  SAVED CONCEPT CARD  (logic unchanged)
+//  SAVED CONCEPT CARD  (unchanged logic)
 // ─────────────────────────────────────────────────────────────
 
 function SavedConceptCard({ concept, onRemove, onOpenSource }) {

@@ -1,12 +1,12 @@
 import { useState, useCallback, useMemo } from 'react'
 import Header from './components/layout/Header'
-import { MobileNav } from './components/layout/GlassNav'
 import CourseSidebar from './components/layout/CourseSidebar'
 import LearningSidebar from './components/layout/LearningSidebar'
 import ChatView from './components/chat/ChatView'
 import NotebookView from './components/notebook/NotebookView'
 import CourseView from './components/course/CourseView'
 import SourcePanel from './components/citations/SourcePanel'
+import StudentSelector from './components/layout/StudentSelector'
 import { useTheme } from './hooks/useTheme'
 import { useNotebook } from './hooks/useNotebook'
 import {
@@ -18,16 +18,28 @@ import {
 import { resolveCitation } from './lib/resolveCitation'
 
 /**
+ * Derive explored slides from a conversation's existing messages.
+ * Returns an empty Set if the conversation has no messages with citations.
+ */
+function deriveExploredSlides(conversationId) {
+  const explored = new Set()
+  const conv = conversations[conversationId]
+  if (conv?.messages) {
+    conv.messages.forEach((msg) => {
+      if (!msg.citations) return
+      msg.citations.forEach((citation) => {
+        const resolved = resolveCitation(citation, lectures)
+        if (resolved) {
+          explored.add(`${resolved.week}:${citation.slide}`)
+        }
+      })
+    })
+  }
+  return explored
+}
+
+/**
  * App — root component orchestrating all views, state, and navigation.
- *
- * State:
- * - activeView: 'chat' | 'learn' | 'course'
- * - activeConversationId: current conversation
- * - messages: conversation messages + streamed messages
- * - sourcePanel: currently opened lecture/slide
- * - exploredSlides: Set of "week:slide" keys
- * - sidebarCollapsed: right sidebar state
- * - selectedWeek: lecture currently selected in Course view
  */
 export default function App() {
   const { theme, toggleTheme } = useTheme()
@@ -45,12 +57,28 @@ export default function App() {
   } = useNotebook()
 
   // ============================================================
+  // STUDENT STATE SELECTOR
+  // ============================================================
+
+  // null = show selector screen
+  const [selectedMode, setSelectedMode] = useState(null)
+
+  const handleSelectMode = useCallback((mode) => {
+    // 'existing' => load defaultConversationId
+    // 'new'      => load emptyConversationId
+    const convId = mode === 'existing' ? defaultConversationId : emptyConversationId
+    setActiveConversationId(convId)
+    setMessageOverrides({})
+    setExploredSlides(deriveExploredSlides(convId))
+    setSelectedMode(mode)
+    setActiveView('chat')
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ============================================================
   // NAVIGATION
   // ============================================================
 
   const [activeView, setActiveView] = useState('chat')
-
-  // Which week is currently selected in the Course view
   const [selectedWeek, setSelectedWeek] = useState(null)
 
   // ============================================================
@@ -70,18 +98,10 @@ export default function App() {
 
   const messages = useMemo(() => {
     const base = conversation?.messages || []
-
     return messageOverrides[activeConversationId]
-      ? [
-          ...base,
-          ...messageOverrides[activeConversationId],
-        ]
+      ? [...base, ...messageOverrides[activeConversationId]]
       : base
-  }, [
-    conversation,
-    activeConversationId,
-    messageOverrides,
-  ])
+  }, [conversation, activeConversationId, messageOverrides])
 
   // ============================================================
   // SOURCE PANEL
@@ -97,39 +117,22 @@ export default function App() {
   // EXPLORED SLIDES
   // ============================================================
 
-  const [exploredSlides, setExploredSlides] = useState(() => {
-    const explored = new Set()
-
-    const conv = conversations[defaultConversationId]
-
-    if (conv?.messages) {
-      conv.messages.forEach((msg) => {
-        if (!msg.citations) return
-
-        msg.citations.forEach((citation) => {
-          const resolved = resolveCitation(
-            citation,
-            lectures
-          )
-
-          if (resolved) {
-            explored.add(
-              `${resolved.week}:${citation.slide}`
-            )
-          }
-        })
-      })
-    }
-
-    return explored
-  })
+  // Start from defaultConversationId until the selector sets the real one
+  const [exploredSlides, setExploredSlides] = useState(() =>
+    deriveExploredSlides(defaultConversationId)
+  )
 
   // ============================================================
   // RIGHT SIDEBAR
   // ============================================================
 
-  const [sidebarCollapsed, setSidebarCollapsed] =
-    useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+
+  // ============================================================
+  // PROGRESS CARD
+  // ============================================================
+
+  const [progressCardOpen, setProgressCardOpen] = useState(false)
 
   // ============================================================
   // RECENT CITATIONS
@@ -139,34 +142,21 @@ export default function App() {
     const seen = new Set()
     const recent = []
 
-    for (
-      let i = messages.length - 1;
-      i >= 0;
-      i--
-    ) {
+    for (let i = messages.length - 1; i >= 0; i--) {
       const msg = messages[i]
-
       if (!msg.citations) continue
 
       for (const citation of msg.citations) {
-        const resolved = resolveCitation(
-          citation,
-          lectures
-        )
-
+        const resolved = resolveCitation(citation, lectures)
         if (!resolved) continue
-
-        const key =
-          `${resolved.week}:${citation.slide}`
-
+        const key = `${resolved.week}:${citation.slide}`
         if (seen.has(key)) continue
-
         seen.add(key)
-
         recent.push({
           title: resolved.slide.title,
           week: resolved.week,
           slideNumber: citation.slide,
+          messageId: msg.id,
         })
       }
     }
@@ -182,31 +172,21 @@ export default function App() {
     (message) => {
       setMessageOverrides((prev) => ({
         ...prev,
-
         [activeConversationId]: [
           ...(prev[activeConversationId] || []),
           message,
         ],
       }))
 
-      // Track citations as explored
       if (message.citations?.length > 0) {
         setExploredSlides((prev) => {
           const next = new Set(prev)
-
           message.citations.forEach((citation) => {
-            const resolved = resolveCitation(
-              citation,
-              lectures
-            )
-
+            const resolved = resolveCitation(citation, lectures)
             if (resolved) {
-              next.add(
-                `${resolved.week}:${citation.slide}`
-              )
+              next.add(`${resolved.week}:${citation.slide}`)
             }
           })
-
           return next
         })
       }
@@ -224,14 +204,9 @@ export default function App() {
       lecture: resolved.lecture,
       slide: resolved.slide,
     })
-
     setExploredSlides((prev) => {
       const next = new Set(prev)
-
-      next.add(
-        `${resolved.lecture.week}:${resolved.slide.slide_number}`
-      )
-
+      next.add(`${resolved.lecture.week}:${resolved.slide.slide_number}`)
       return next
     })
   }, [])
@@ -241,78 +216,46 @@ export default function App() {
   // ============================================================
 
   const handleCloseSource = useCallback(() => {
-    setSourcePanel((prev) => ({
-      ...prev,
-      isOpen: false,
-    }))
+    setSourcePanel((prev) => ({ ...prev, isOpen: false }))
   }, [])
 
   // ============================================================
   // NAVIGATE SOURCE SLIDES
   // ============================================================
 
-  const handleNavigateSlide = useCallback(
-    (lecture, slide) => {
-      setSourcePanel({
-        isOpen: true,
-        lecture,
-        slide,
-      })
-
-      setExploredSlides((prev) => {
-        const next = new Set(prev)
-
-        next.add(
-          `${lecture.week}:${slide.slide_number}`
-        )
-
-        return next
-      })
-    },
-    []
-  )
+  const handleNavigateSlide = useCallback((lecture, slide) => {
+    setSourcePanel({ isOpen: true, lecture, slide })
+    setExploredSlides((prev) => {
+      const next = new Set(prev)
+      next.add(`${lecture.week}:${slide.slide_number}`)
+      return next
+    })
+  }, [])
 
   // ============================================================
   // TRACK VIEWED SLIDE
   // ============================================================
 
-  const handleSlideViewed = useCallback(
-    (week, slideNumber) => {
-      setExploredSlides((prev) => {
-        const next = new Set(prev)
-
-        next.add(`${week}:${slideNumber}`)
-
-        return next
-      })
-    },
-    []
-  )
+  const handleSlideViewed = useCallback((week, slideNumber) => {
+    setExploredSlides((prev) => {
+      const next = new Set(prev)
+      next.add(`${week}:${slideNumber}`)
+      return next
+    })
+  }, [])
 
   // ============================================================
   // OPEN SLIDE FROM COURSE VIEW
   // ============================================================
 
-  const handleOpenSlide = useCallback(
-    (lecture, slide) => {
-      setSourcePanel({
-        isOpen: true,
-        lecture,
-        slide,
-      })
-
-      setExploredSlides((prev) => {
-        const next = new Set(prev)
-
-        next.add(
-          `${lecture.week}:${slide.slide_number}`
-        )
-
-        return next
-      })
-    },
-    []
-  )
+  const handleOpenSlide = useCallback((lecture, slide) => {
+    setSourcePanel({ isOpen: true, lecture, slide })
+    setExploredSlides((prev) => {
+      const next = new Set(prev)
+      next.add(`${lecture.week}:${slide.slide_number}`)
+      return next
+    })
+  }, [])
 
   // ============================================================
   // SELECT LECTURE
@@ -324,16 +267,50 @@ export default function App() {
   }, [])
 
   // ============================================================
-  // SWITCH CONVERSATION
+  // RECENT ITEM SCROLL + SOURCE OPEN
   // ============================================================
 
-  const handleSwitchConversation = useCallback(() => {
-    setActiveConversationId((prev) =>
-      prev === defaultConversationId
-        ? emptyConversationId
-        : defaultConversationId
-    )
+  const handleRecentItemClick = useCallback((item) => {
+    // Resolve the lecture and slide from week + slideNumber
+    const lecture = lectures.find((lec) => lec.week === item.week)
+    if (lecture) {
+      const slide = lecture.slides.find((s) => s.slide_number === item.slideNumber)
+      if (slide) {
+        // Open the SourcePanel with the correct slide
+        setSourcePanel({ isOpen: true, lecture, slide })
+        setExploredSlides((prev) => {
+          const next = new Set(prev)
+          next.add(`${lecture.week}:${slide.slide_number}`)
+          return next
+        })
+        return
+      }
+    }
+    // Fallback: switch to chat and scroll to the originating message
+    setActiveView('chat')
+    setTimeout(() => {
+      const msgEl = document.getElementById(`msg-${item.messageId}`)
+      if (msgEl) {
+        msgEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        msgEl.classList.add('citation-highlight')
+        setTimeout(() => msgEl.classList.remove('citation-highlight'), 2000)
+      }
+    }, 100)
   }, [])
+
+  // ============================================================
+  // STUDENT SELECTOR GUARD
+  // ============================================================
+
+  if (selectedMode === null) {
+    return (
+      <StudentSelector
+        onSelect={handleSelectMode}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+      />
+    )
+  }
 
   // ============================================================
   // RENDER
@@ -342,9 +319,7 @@ export default function App() {
   return (
     <div
       className="h-screen flex flex-col"
-      style={{
-        backgroundColor: 'var(--color-bg)',
-      }}
+      style={{ backgroundColor: 'var(--color-bg)' }}
     >
       {/* ======================================================
           HEADER
@@ -357,6 +332,9 @@ export default function App() {
         onToggleTheme={toggleTheme}
         exploredSlides={exploredSlides}
         savedCount={savedCount}
+        onOpenProgress={() => setProgressCardOpen(v => !v)}
+        progressCardOpen={progressCardOpen}
+        onCloseProgress={() => setProgressCardOpen(false)}
       />
 
       {/* ======================================================
@@ -385,12 +363,9 @@ export default function App() {
 
         <main
           className="flex-1 flex flex-col min-w-0 overflow-hidden"
-          style={{
-            backgroundColor: 'var(--color-bg)',
-          }}
+          style={{ backgroundColor: 'var(--color-bg)' }}
         >
           {/* CHAT */}
-
           {activeView === 'chat' && (
             <ChatView
               conversation={conversation}
@@ -403,7 +378,6 @@ export default function App() {
           )}
 
           {/* LEARN */}
-
           {activeView === 'learn' && (
             <NotebookView
               concepts={concepts}
@@ -417,7 +391,6 @@ export default function App() {
           )}
 
           {/* COURSE */}
-
           {activeView === 'course' && (
             <CourseView
               exploredSlides={exploredSlides}
@@ -437,11 +410,7 @@ export default function App() {
               hidden md:flex
               flex-shrink-0
               transition-all duration-300
-              ${
-                sidebarCollapsed
-                  ? 'w-[48px]'
-                  : 'w-[280px]'
-              }
+              ${sidebarCollapsed ? 'w-[48px]' : 'w-[280px]'}
             `}
           >
             <LearningSidebar
@@ -449,25 +418,14 @@ export default function App() {
               savedCount={savedCount}
               recentCitations={recentCitations}
               isCollapsed={sidebarCollapsed}
-              onToggleCollapse={() =>
-                setSidebarCollapsed(
-                  !sidebarCollapsed
-                )
-              }
+              onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
               onViewChange={setActiveView}
+              onOpenProgress={() => setProgressCardOpen(v => !v)}
+              onRecentItemClick={handleRecentItemClick}
             />
           </div>
         )}
       </div>
-
-      {/* ======================================================
-          MOBILE NAV
-      ======================================================= */}
-
-      <MobileNav
-        activeView={activeView}
-        onViewChange={setActiveView}
-      />
 
       {/* ======================================================
           SOURCE PANEL
