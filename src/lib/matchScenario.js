@@ -113,8 +113,4 @@ export const STARTER_PROMPTS = [
   },
 ]
 
-/** All 8 scenario IDs, for the dev trigger panel */
-export const ALL_SCENARIOS = Object.values(EXACT_PROMPTS)
-  .filter((v, i, a) => a.indexOf(v) === i) // unique
-
 export { EXACT_PROMPTS }

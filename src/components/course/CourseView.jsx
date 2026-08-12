@@ -15,19 +15,9 @@ import {
 import tabBg from '../../assets/tab_bg.png'
 
 /**
- * CourseView
- *
- * Displays the complete course structure.
- *
- * selectedWeek:
- *   The week selected from CourseSidebar.
- *
- * When selected:
- *   - scroll/highlight that lecture
- *   - show its slides
- *   - visually distinguish it from the other weeks
- *
- * Clicking a slide opens SourcePanel through onOpenSlide.
+ * CourseView — shows all lectures and their slides with per-week progress.
+ * Auto-scrolls to selectedWeek when navigating from the CourseSidebar.
+ * Clicking a slide opens the SourcePanel via onOpenSlide.
  */
 export default function CourseView({
   exploredSlides,
@@ -95,9 +85,7 @@ export default function CourseView({
         backgroundColor: 'var(--color-bg)',
       }}
     >
-      {/* ======================================================
-          COURSE HERO
-      ======================================================= */}
+      {/* Course hero — title, description, and overall progress bar */}
 
       <section
         className="relative overflow-hidden
@@ -220,9 +208,7 @@ export default function CourseView({
         </div>
       </section>
 
-      {/* ======================================================
-          LECTURE LIST
-      ======================================================= */}
+      {/* Lecture list */}
 
       <div
         className="max-w-5xl mx-auto
@@ -289,9 +275,7 @@ export default function CourseView({
                     : 'none',
               }}
             >
-              {/* =================================================
-                  LECTURE HEADER
-              ================================================== */}
+              {/* Lecture header */}
 
               <div
                 className="px-5 sm:px-6 py-5
@@ -434,9 +418,7 @@ export default function CourseView({
                 </div>
               </div>
 
-              {/* =================================================
-                  SLIDES
-              ================================================== */}
+              {/* Slides grid */}
 
               <div
                 className="border-t px-4 sm:px-6

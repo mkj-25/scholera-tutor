@@ -43,9 +43,6 @@ export default function CitationCard({
         hover:shadow-[var(--shadow-card)]
       "
       style={{
-        /* --surface-deep: near-black surface makes citation cards visually
-           lift out of the conversational text above them, signalling that
-           this content comes from a different place (lecture source vs. AI answer). */
         backgroundColor: 'var(--surface-deep)',
         borderColor: 'var(--surface-deep-border, var(--color-border-subtle))',
       }}

@@ -19,8 +19,6 @@ export default function StudentSelector({ onSelect, theme, onToggleTheme }) {
         }}
       />
 
-      
-
       {/* Theme toggle — top right */}
       <button
         id="selector-theme-toggle"
@@ -113,8 +111,6 @@ export default function StudentSelector({ onSelect, theme, onToggleTheme }) {
                 style={{ color: 'var(--color-text-tertiary)' }}
               />
             </div>
-
-            
           </button>
 
           {/* ── Option 2: New student ── */}

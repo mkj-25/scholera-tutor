@@ -1,18 +1,7 @@
 /**
- * resolveCitation(citation, lectures)
- *
- * Maps a citation object from conversation/response data to the actual
- * lecture and slide objects from the lecture JSON files.
- *
- * Citation shape (from conversation.json / responses.json):
- *   { "lecture": "Week 2 — Gradient Descent and Backpropagation", "slide": 9 }
- *
- * Lecture shape (from lectures/*.json):
- *   { lecture_id, course_code, course_title, week, title, slides: [...] }
- *   where title = "Gradient Descent and Backpropagation"
- *
- * The citation.lecture string is formatted as "Week N — <lecture title>",
- * so we match by extracting the title portion after the "—" dash.
+ * Maps a citation object { lecture, slide } to the matching lecture/slide
+ * objects from the lectures array. Matches by extracting the title after the
+ * "Week N — " prefix, falling back to week-number matching.
  */
 
 /**
@@ -57,19 +46,3 @@ export function resolveCitation(citation, lectures) {
   }
 }
 
-/**
- * Create a unique key for a citation, used for tracking explored slides.
- */
-export function citationKey(citation) {
-  if (!citation) return null
-  return `${citation.lecture}::${citation.slide}`
-}
-
-/**
- * Given a lecture title string from a citation, return the week number.
- */
-export function weekFromCitation(citation) {
-  if (!citation?.lecture) return null
-  const match = citation.lecture.match(/Week\s+(\d+)/)
-  return match ? parseInt(match[1], 10) : null
-}

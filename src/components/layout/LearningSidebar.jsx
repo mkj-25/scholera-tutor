@@ -60,8 +60,7 @@ export default function LearningSidebar({
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-4 pt-3">
-        {/* Compact progress widget — surface-deep grounds this as a distinct
-            status module, separate from the neutral sidebar surface behind it. */}
+        {/* Progress widget — opens the detailed progress card */}
         <button
           onClick={onOpenProgress}
           className="w-full flex items-center gap-3 p-3 rounded-[var(--radius-card)] border text-left

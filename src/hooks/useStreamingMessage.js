@@ -1,20 +1,11 @@
 import { useState, useRef, useCallback } from 'react'
 
 /**
- * useStreamingMessage — wraps mock-stream.mjs to stream AI responses.
- *
- * Supports two stream modes:
- * 1. startStream(scenarioId) — streams a predefined scenario (original behavior)
- * 2. startTextStream(text, citations) — streams arbitrary text with given citations
- *
- * Exposes:
- * - content: the streamed text accumulated so far
- * - status: 'idle' | 'connecting' | 'streaming' | 'done' | 'stopped' | 'error'
- * - error: error message string when status is 'error'
- * - citations: citations array from the scenario
- * - startStream(scenarioId): begin streaming a scenario
- * - startTextStream(text, citations): stream arbitrary text
- * - abort(): cancel the current stream (user pressed Stop)
+ * Simulates streamed AI responses via a character-chunking approach.
+ * Supports two modes:
+ * - startStream(scenarioId) — streams a predefined mock scenario
+ * - startTextStream(text, citations) — streams arbitrary text with given citations
+ * Status values: 'idle' | 'connecting' | 'streaming' | 'done' | 'stopped' | 'error'
  */
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -105,10 +96,7 @@ export function useStreamingMessage() {
     }
   }, [])
 
-  /**
-   * Stream arbitrary text with given citations.
-   * Used for topic-aware responses that don't have a scenario ID.
-   */
+  // Stream arbitrary text with given citations (used for topic-aware responses)
   const startTextStream = useCallback(async (text, citationsArg = []) => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()

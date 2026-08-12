@@ -1,22 +1,8 @@
 import { useState, useCallback } from 'react'
 
 /**
- * useNotebook — manages saved concepts with localStorage persistence.
- *
- * Each saved concept has:
- * - id: unique identifier (generated)
- * - title: short concept title (derived from the question or answer)
- * - snippet: brief explanation excerpt
- * - citations: array of citation objects from the assistant message
- * - savedAt: ISO timestamp
- * - messageId: the original message ID it was saved from
- *
- * Personal notes (separate) have:
- * - id: unique identifier
- * - title: user-supplied note title
- * - content: markdown string
- * - createdAt: ISO timestamp
- * - updatedAt: ISO timestamp
+ * Manages saved concepts and personal notes with localStorage persistence.
+ * Concepts are saved from assistant messages; notes are user-authored rich text.
  */
 
 const STORAGE_KEY = 'scholera-notebook'
@@ -139,7 +125,6 @@ export function useNotebook() {
     removeConcept,
     isConceptSaved,
     savedCount: concepts.length,
-    // personal notes
     personalNotes,
     addNote,
     updateNote,

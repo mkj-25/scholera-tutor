@@ -17,10 +17,7 @@ import {
 } from './lib/data'
 import { resolveCitation } from './lib/resolveCitation'
 
-/**
- * Derive explored slides from a conversation's existing messages.
- * Returns an empty Set if the conversation has no messages with citations.
- */
+// Pre-populate exploredSlides from citations already present in a conversation
 function deriveExploredSlides(conversationId) {
   const explored = new Set()
   const conv = conversations[conversationId]
@@ -38,9 +35,6 @@ function deriveExploredSlides(conversationId) {
   return explored
 }
 
-/**
- * App — root component orchestrating all views, state, and navigation.
- */
 export default function App() {
   const { theme, toggleTheme } = useTheme()
 
@@ -56,16 +50,10 @@ export default function App() {
     deleteNote,
   } = useNotebook()
 
-  // ============================================================
-  // STUDENT STATE SELECTOR
-  // ============================================================
-
   // null = show selector screen; 'existing' or 'new' = main UI
   const [selectedMode, setSelectedMode] = useState(null)
 
   const handleSelectMode = useCallback((mode) => {
-    // 'existing' => load defaultConversationId
-    // 'new'      => load emptyConversationId
     const convId = mode === 'existing' ? defaultConversationId : emptyConversationId
     setActiveConversationId(convId)
     setMessageOverrides({})
@@ -74,26 +62,16 @@ export default function App() {
     setActiveView('chat')
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ============================================================
-  // NAVIGATION
-  // ============================================================
-
   const [activeView, setActiveView] = useState('chat')
   const [selectedWeek, setSelectedWeek] = useState(null)
 
-  // ============================================================
-  // CONVERSATION
-  // ============================================================
-
+  // Tracks which conversation is loaded (existing vs. new student)
   const [activeConversationId, setActiveConversationId] =
     useState(defaultConversationId)
 
   const conversation = conversations[activeConversationId]
 
-  // ============================================================
-  // MESSAGES
-  // ============================================================
-
+  // Merges seed messages with any messages added during this session
   const [messageOverrides, setMessageOverrides] = useState({})
 
   const messages = useMemo(() => {
@@ -103,41 +81,21 @@ export default function App() {
       : base
   }, [conversation, activeConversationId, messageOverrides])
 
-  // ============================================================
-  // SOURCE PANEL
-  // ============================================================
-
   const [sourcePanel, setSourcePanel] = useState({
     isOpen: false,
     lecture: null,
     slide: null,
   })
 
-  // ============================================================
-  // EXPLORED SLIDES
-  // ============================================================
-
-  // Start from defaultConversationId until the selector sets the real one
+  // Tracks which slides the student has viewed, keyed as "week:slideNumber"
   const [exploredSlides, setExploredSlides] = useState(() =>
     deriveExploredSlides(defaultConversationId)
   )
 
-  // ============================================================
-  // RIGHT SIDEBAR
-  // ============================================================
-
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-
-  // ============================================================
-  // PROGRESS CARD
-  // ============================================================
-
   const [progressCardOpen, setProgressCardOpen] = useState(false)
 
-  // ============================================================
-  // RECENT CITATIONS
-  // ============================================================
-
+  // Derives the N most-recently cited slides for the Learning sidebar
   const recentCitations = useMemo(() => {
     const seen = new Set()
     const recent = []
@@ -164,10 +122,7 @@ export default function App() {
     return recent.slice(0, 8)
   }, [messages])
 
-  // ============================================================
-  // ADD MESSAGE
-  // ============================================================
-
+  // Appends a new message and marks any cited slides as explored
   const handleAddMessage = useCallback(
     (message) => {
       setMessageOverrides((prev) => ({
@@ -194,10 +149,6 @@ export default function App() {
     [activeConversationId]
   )
 
-  // ============================================================
-  // OPEN SOURCE
-  // ============================================================
-
   const handleOpenSource = useCallback((resolved) => {
     setSourcePanel({
       isOpen: true,
@@ -211,18 +162,11 @@ export default function App() {
     })
   }, [])
 
-  // ============================================================
-  // CLOSE SOURCE
-  // ============================================================
-
   const handleCloseSource = useCallback(() => {
     setSourcePanel((prev) => ({ ...prev, isOpen: false }))
   }, [])
 
-  // ============================================================
-  // NAVIGATE SOURCE SLIDES
-  // ============================================================
-
+  // Navigate between slides within the SourcePanel
   const handleNavigateSlide = useCallback((lecture, slide) => {
     setSourcePanel({ isOpen: true, lecture, slide })
     setExploredSlides((prev) => {
@@ -232,10 +176,6 @@ export default function App() {
     })
   }, [])
 
-  // ============================================================
-  // TRACK VIEWED SLIDE
-  // ============================================================
-
   const handleSlideViewed = useCallback((week, slideNumber) => {
     setExploredSlides((prev) => {
       const next = new Set(prev)
@@ -243,10 +183,6 @@ export default function App() {
       return next
     })
   }, [])
-
-  // ============================================================
-  // OPEN SLIDE FROM COURSE VIEW
-  // ============================================================
 
   const handleOpenSlide = useCallback((lecture, slide) => {
     setSourcePanel({ isOpen: true, lecture, slide })
@@ -257,26 +193,18 @@ export default function App() {
     })
   }, [])
 
-  // ============================================================
-  // SELECT LECTURE
-  // ============================================================
-
+  // Selects a week from the sidebar and switches to the Course view
   const handleSelectLecture = useCallback((week) => {
     setSelectedWeek(week)
     setActiveView('course')
   }, [])
 
-  // ============================================================
-  // RECENT ITEM SCROLL + SOURCE OPEN
-  // ============================================================
-
+  // Opens the SourcePanel for a recently cited slide, or scrolls to the message
   const handleRecentItemClick = useCallback((item) => {
-    // Resolve the lecture and slide from week + slideNumber
     const lecture = lectures.find((lec) => lec.week === item.week)
     if (lecture) {
       const slide = lecture.slides.find((s) => s.slide_number === item.slideNumber)
       if (slide) {
-        // Open the SourcePanel with the correct slide
         setSourcePanel({ isOpen: true, lecture, slide })
         setExploredSlides((prev) => {
           const next = new Set(prev)
@@ -298,10 +226,7 @@ export default function App() {
     }, 100)
   }, [])
 
-  // ============================================================
-  // STUDENT SELECTOR GUARD
-  // ============================================================
-
+  // Gate: show the student selector until a mode is chosen
   if (selectedMode === null) {
     return (
       <StudentSelector
@@ -312,19 +237,11 @@ export default function App() {
     )
   }
 
-  // ============================================================
-  // RENDER
-  // ============================================================
-
   return (
     <div
       className="h-screen flex flex-col"
       style={{ backgroundColor: 'var(--color-bg)' }}
     >
-      {/* ======================================================
-          HEADER
-      ======================================================= */}
-
       <Header
         activeView={activeView}
         onViewChange={setActiveView}
@@ -337,16 +254,9 @@ export default function App() {
         onCloseProgress={() => setProgressCardOpen(false)}
       />
 
-      {/* ======================================================
-          MAIN LAYOUT
-      ======================================================= */}
-
       <div className="flex-1 flex overflow-hidden">
 
-        {/* ====================================================
-            LEFT COURSE SIDEBAR
-        ===================================================== */}
-
+        {/* Left sidebar — hidden on mobile */}
         <div className="hidden lg:flex w-[250px] flex-shrink-0">
           <CourseSidebar
             course={conversation?.course}
@@ -354,18 +264,14 @@ export default function App() {
             selectedWeek={selectedWeek}
             onSelectLecture={handleSelectLecture}
             onViewChange={setActiveView}
+            theme={theme}
           />
         </div>
-
-        {/* ====================================================
-            CENTER
-        ===================================================== */}
 
         <main
           className="flex-1 flex flex-col min-w-0 overflow-hidden"
           style={{ backgroundColor: 'var(--color-bg)' }}
         >
-          {/* CHAT */}
           {activeView === 'chat' && (
             <ChatView
               conversation={conversation}
@@ -377,7 +283,6 @@ export default function App() {
             />
           )}
 
-          {/* LEARN */}
           {activeView === 'learn' && (
             <NotebookView
               concepts={concepts}
@@ -390,7 +295,6 @@ export default function App() {
             />
           )}
 
-          {/* COURSE */}
           {activeView === 'course' && (
             <CourseView
               exploredSlides={exploredSlides}
@@ -400,10 +304,7 @@ export default function App() {
           )}
         </main>
 
-        {/* ====================================================
-            RIGHT LEARNING SIDEBAR
-        ===================================================== */}
-
+        {/* Right sidebar — collapses to icon strip, hidden on mobile */}
         {activeView === 'chat' && (
           <div
             className={`
@@ -426,10 +327,6 @@ export default function App() {
           </div>
         )}
       </div>
-
-      {/* ======================================================
-          SOURCE PANEL
-      ======================================================= */}
 
       <SourcePanel
         isOpen={sourcePanel.isOpen}

@@ -1,25 +1,18 @@
-import { lectures, totalSlides } from '../../lib/data'
+import { lectures } from '../../lib/data'
+import mlBg from '../../assets/ml_bg.png'
+import mlBg1 from '../../assets/ml_bg1.png'
 import {
   ChevronRight,
   GraduationCap,
 } from 'lucide-react'
 
-/**
- * CourseSidebar
- *
- * Left-side course navigation.
- *
- * Clicking a week:
- *   1. selects that week
- *   2. switches to Course view
- *   3. highlights the selected week
- */
 export default function CourseSidebar({
   course,
   exploredSlides,
   selectedWeek,
   onSelectLecture,
   onViewChange,
+  theme,
 }) {
   const exploredCount =
     exploredSlides?.size ?? 0
@@ -32,15 +25,16 @@ export default function CourseSidebar({
         borderColor: 'var(--color-border)',
       }}
     >
-      {/* =====================================================
-          COURSE HEADER
-      ====================================================== */}
+      {/* COURSE HEADER */}
 
       <div
         className="px-5 py-5 border-b flex-shrink-0"
         style={{
-          borderColor:
-            'var(--color-border-subtle)',
+          borderColor: 'var(--color-border-subtle)',
+          backgroundImage: `url(${theme === 'light' ? mlBg1 : mlBg})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
         }}
       >
         <div
@@ -142,9 +136,6 @@ export default function CourseSidebar({
                   }
                 `}
                 style={{
-                  /* --surface-deep: grounds the active/selected lecture as a distinct
-                     status card vs. the transparent inactive items. Blue left bar + badge
-                     still carry the selection signal; the dark surface adds physical weight. */
                   backgroundColor: isSelected
                     ? 'var(--surface-deep)'
                     : 'transparent',
@@ -294,9 +285,6 @@ export default function CourseSidebar({
         </div>
       </div>
 
-      
-
-      
     </aside>
   )
 }

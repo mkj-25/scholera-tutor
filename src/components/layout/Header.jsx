@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import { lectures, totalSlides } from '../../lib/data'
 
-// ── Progress Card ─────────────────────────────────────────────────────────────
+// Progress Card
 
 function ProgressCard({ exploredSlides, savedCount, onClose }) {
   const cardRef = useRef(null)
@@ -116,8 +116,6 @@ function ProgressCard({ exploredSlides, savedCount, onClose }) {
             <div className="text-[11px] mt-0.5" style={{ color: 'var(--color-text-tertiary)' }}>
               {exploredCount} / {totalSlides} slides explored
             </div>
-            {/* --accent-saved: violet reinforces saved content's identity
-                across the app — same color as the sidebar's concepts-saved stat. */}
             <div className="text-[11px] mt-0.5" style={{ color: 'var(--accent-saved)' }}>
               {savedCount} concept{savedCount !== 1 ? 's' : ''} saved
             </div>
@@ -147,9 +145,6 @@ function ProgressCard({ exploredSlides, savedCount, onClose }) {
                   className="h-full rounded-full transition-all duration-700"
                   style={{
                     width: `${wPct}%`,
-                    /* --accent-success: per-week bars measure exploration progress
-                       (completion state), not navigation or AI content. Green
-                       distinguishes these from the blue overall-ring summary. */
                     backgroundColor: 'var(--accent-success)',
                   }}
                 />
@@ -224,8 +219,8 @@ export default function Header({
       <div
         className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
         style={{
-          backgroundColor: 'rgba(170, 184, 255, 0.36)',
-          border: '1.5px solid rgba(255, 255, 255, 0.24)',
+          backgroundColor: 'rgb(252, 252, 255)',
+          border: '1.5px solid rgba(3, 87, 255, 0.61)',
           boxShadow: '0 4px 14px rgba(0, 0, 0, 0.15)',
         }}
       >
