@@ -45,7 +45,7 @@ export default function StudentSelector({ onSelect, theme, onToggleTheme }) {
         }}
         aria-label="Toggle theme"
       >
-        {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+        {theme === 'dark' ? <Sun size={16} color="#fffc97" /> : <Moon size={16} />}
       </button>
 
       {/* Card container */}

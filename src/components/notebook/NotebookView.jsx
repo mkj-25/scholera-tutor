@@ -1,305 +1,285 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import {
   BookOpen,
-  FileText,
   Trash2,
   Lightbulb,
   Plus,
-  Pencil,
   X,
   Save,
   StickyNote,
+  Pencil,
+  ExternalLink,
   Bold,
   Italic,
-  Underline,
+  Heading2,
   List,
   ListOrdered,
-  Quote,
   Code,
+  Quote,
   Minus,
-  Type,
-  Link2,
-  Strikethrough,
 } from 'lucide-react'
 import { resolveCitation } from '../../lib/resolveCitation'
 import { lectures } from '../../lib/data'
 
-// ─────────────────────────────────────────────────────────────
-//  WYSIWYG TOOLBAR DEFINITION
-// ─────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
+// Toolbar button
+// ---------------------------------------------------------------------------
 
-// Each button calls a handler in the editor.
-// Some use execCommand, headings use insertHTML.
-const TOOLBAR_GROUPS = [
-  [
-    { id: 'h1',         label: 'Heading 1',    icon: null,           shortText: 'H1' },
-    { id: 'h2',         label: 'Heading 2',    icon: null,           shortText: 'H2' },
-    { id: 'h3',         label: 'Heading 3',    icon: null,           shortText: 'H3' },
-  ],
-  [
-    { id: 'bold',       label: 'Bold',         icon: Bold                             },
-    { id: 'italic',     label: 'Italic',       icon: Italic                           },
-    { id: 'underline',  label: 'Underline',    icon: Underline                        },
-    { id: 'strikethrough', label: 'Strikethrough', icon: Strikethrough               },
-  ],
-  [
-    { id: 'insertUnorderedList', label: 'Bullet list',   icon: List                  },
-    { id: 'insertOrderedList',   label: 'Numbered list', icon: ListOrdered           },
-    { id: 'blockquote',          label: 'Quote',         icon: Quote                 },
-  ],
-  [
-    { id: 'code',       label: 'Inline code',  icon: Code                             },
-    { id: 'hr',         label: 'Divider',      icon: Minus                            },
-  ],
-]
-
-// ─────────────────────────────────────────────────────────────
-//  WYSIWYG EDITOR (contenteditable)
-// ─────────────────────────────────────────────────────────────
-
-/**
- * RichEditor — a contenteditable-based WYSIWYG editor.
- *
- * Content is stored as HTML. The toolbar buttons call document.execCommand
- * (for inline formats + lists) or inject semantic HTML (for headings, code,
- * blockquote, hr) at the current selection.
- *
- * Props:
- *   html         — current HTML content string
- *   onChange     — called with new HTML string whenever content changes
- *   placeholder  — placeholder text
- */
-function RichEditor({ html, onChange, placeholder }) {
-  const editorRef = useRef(null)
-  // Track whether we're in a composition session (CJK/autocorrect)
-  const composingRef = useRef(false)
-  // Suppress the first onInput that fires when we set innerHTML externally
-  const externalSetRef = useRef(false)
-
-  // Push incoming html prop into the DOM only when it changes from the outside
-  // (e.g. opening a different note). We skip this while the user is typing.
-  useEffect(() => {
-    const el = editorRef.current
-    if (!el) return
-    // Compare sanitised to avoid cursor-jumping on every keystroke
-    if (el.innerHTML !== html) {
-      externalSetRef.current = true
-      el.innerHTML = html || ''
-    }
-  }, [html])
-
-  // Auto-focus when mounted
-  useEffect(() => {
-    editorRef.current?.focus()
-  }, [])
-
-  const emitChange = useCallback(() => {
-    const el = editorRef.current
-    if (!el) return
-    onChange(el.innerHTML)
-  }, [onChange])
-
-  const handleInput = useCallback(() => {
-    if (externalSetRef.current) { externalSetRef.current = false; return }
-    if (!composingRef.current) emitChange()
-  }, [emitChange])
-
-  const handleCompositionStart = () => { composingRef.current = true }
-  const handleCompositionEnd   = () => { composingRef.current = false; emitChange() }
-
-  // Apply a toolbar action at the current selection
-  const applyFormat = useCallback((id) => {
-    const el = editorRef.current
-    if (!el) return
-    el.focus()
-
-    switch (id) {
-      case 'h1':
-      case 'h2':
-      case 'h3': {
-        const tag = id.toUpperCase() // H1 H2 H3
-        document.execCommand('formatBlock', false, tag)
-        break
-      }
-      case 'blockquote': {
-        document.execCommand('formatBlock', false, 'BLOCKQUOTE')
-        break
-      }
-      case 'code': {
-        // Wrap selection in <code>. If nothing selected, insert placeholder.
-        const sel = window.getSelection()
-        if (!sel || sel.rangeCount === 0) break
-        const range = sel.getRangeAt(0)
-        const selectedText = range.toString()
-        const codeEl = document.createElement('code')
-        codeEl.style.fontFamily = '"SF Mono", "Fira Code", monospace'
-        codeEl.style.fontSize   = '0.875em'
-        codeEl.style.padding    = '0.1em 0.35em'
-        codeEl.style.borderRadius = '4px'
-        codeEl.style.backgroundColor = 'var(--color-surface-raised)'
-        codeEl.style.border   = '1px solid var(--color-border-subtle)'
-        codeEl.style.color    = 'var(--color-text-primary)'
-        codeEl.textContent    = selectedText || 'code'
-        range.deleteContents()
-        range.insertNode(codeEl)
-        // Move cursor to end of inserted node
-        range.setStartAfter(codeEl)
-        range.collapse(true)
-        sel.removeAllRanges()
-        sel.addRange(range)
-        break
-      }
-      case 'hr': {
-        document.execCommand('insertHTML', false,
-          '<hr style="border:none;border-top:1px solid var(--color-border);margin:1rem 0"><br>')
-        break
-      }
-      default:
-        // bold, italic, underline, strikethrough, insertUnorderedList, insertOrderedList
-        document.execCommand(id, false, null)
-        break
-    }
-    emitChange()
-  }, [emitChange])
-
-  // Handle Enter inside a blockquote — exit on double Enter (blank line)
-  const handleKeyDown = useCallback((e) => {
-    if (e.key === 'Enter') {
-      const sel = window.getSelection()
-      if (!sel || !sel.rangeCount) return
-      // If inside a blockquote and the current block is empty, exit the blockquote
-      const block = sel.getRangeAt(0).startContainer.parentElement?.closest('blockquote')
-      if (block) {
-        const range = sel.getRangeAt(0)
-        const text  = range.startContainer.textContent || ''
-        if (text.trim() === '') {
-          e.preventDefault()
-          document.execCommand('formatBlock', false, 'P')
-        }
-      }
-    }
-
-    // Tab → indent
-    if (e.key === 'Tab') {
-      e.preventDefault()
-      document.execCommand('insertHTML', false, '&nbsp;&nbsp;&nbsp;&nbsp;')
-    }
-  }, [])
-
-  const isEmpty = !html || html.replace(/<[^>]*>/g, '').trim() === ''
-
+function ToolbarBtn({ icon: Icon, label, onClick, active }) {
   return (
-    <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
-      {/* Placeholder */}
-      {isEmpty && (
-        <div
-          aria-hidden="true"
-          style={{
-            position: 'absolute',
-            top: 0, left: 0, right: 0,
-            padding: '20px 24px',
-            pointerEvents: 'none',
-            fontSize: 'var(--text-body)',
-            color: 'var(--color-text-tertiary)',
-            lineHeight: 1.7,
-            userSelect: 'none',
-          }}
-        >
-          {placeholder || 'Start writing…'}
-        </div>
-      )}
-      <div
-        ref={editorRef}
-        contentEditable
-        suppressContentEditableWarning
-        onInput={handleInput}
-        onCompositionStart={handleCompositionStart}
-        onCompositionEnd={handleCompositionEnd}
-        onKeyDown={handleKeyDown}
-        spellCheck
-        style={{
-          outline: 'none',
-          minHeight: '100%',
-          padding: '20px 24px 40px',
-          fontSize: 'var(--text-body)',
-          lineHeight: 1.75,
-          color: 'var(--color-text-primary)',
-          caretColor: 'var(--color-primary)',
-          overflowY: 'auto',
-          height: '100%',
-          boxSizing: 'border-box',
-          wordBreak: 'break-word',
-        }}
-        className="wysiwyg-editor"
-      />
-    </div>
-  )
-}
-
-// ─────────────────────────────────────────────────────────────
-//  TOOLBAR
-// ─────────────────────────────────────────────────────────────
-
-function FormatToolbar({ onFormat }) {
-  return (
-    <div
-      className="flex items-center gap-px flex-wrap flex-shrink-0"
+    <button
+      type="button"
+      onMouseDown={(e) => {
+        // Prevent editor from losing focus on toolbar click
+        e.preventDefault()
+        onClick()
+      }}
+      title={label}
+      aria-label={label}
+      className="w-7 h-7 flex items-center justify-center rounded-md transition-colors duration-150"
       style={{
-        padding: '4px 8px',
-        borderBottom: '1px solid var(--color-border-subtle)',
-        backgroundColor: 'var(--color-surface-raised)',
+        color: active ? 'var(--color-primary)' : 'var(--color-text-secondary)',
+        backgroundColor: active ? 'var(--color-primary-tint)' : 'transparent',
+      }}
+      onMouseEnter={(e) => {
+        if (!active) {
+          e.currentTarget.style.backgroundColor = 'var(--color-surface)'
+          e.currentTarget.style.color = 'var(--color-text-primary)'
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!active) {
+          e.currentTarget.style.backgroundColor = 'transparent'
+          e.currentTarget.style.color = 'var(--color-text-secondary)'
+        }
       }}
     >
-      {TOOLBAR_GROUPS.map((group, gi) => (
-        <div key={gi} className="flex items-center gap-px">
-          {group.map((btn) => {
-            const Icon = btn.icon
-            return (
-              <button
-                key={btn.id}
-                onMouseDown={(e) => {
-                  // Prevent blur on the contenteditable before execCommand fires
-                  e.preventDefault()
-                  onFormat(btn.id)
-                }}
-                title={btn.label}
-                aria-label={btn.label}
-                className="flex items-center justify-center rounded-md transition-colors duration-150
-                           hover:bg-[var(--color-surface)] hover:text-[var(--color-text-primary)]"
-                style={{
-                  width: 30,
-                  height: 28,
-                  color: 'var(--color-text-secondary)',
-                  fontSize: btn.shortText ? 11 : undefined,
-                  fontWeight: btn.shortText ? 700 : undefined,
-                  fontFamily: btn.shortText ? 'var(--font-sans)' : undefined,
-                  flexShrink: 0,
-                }}
-              >
-                {Icon ? <Icon size={14} strokeWidth={1.8} /> : btn.shortText}
-              </button>
-            )
-          })}
-          {/* Separator between groups */}
-          {gi < TOOLBAR_GROUPS.length - 1 && (
-            <div
-              style={{
-                width: 1,
-                height: 18,
-                backgroundColor: 'var(--color-border-subtle)',
-                margin: '0 4px',
-              }}
-            />
-          )}
+      <Icon size={13} strokeWidth={2} />
+    </button>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Rich text editor (WYSIWYG via contenteditable + execCommand)
+// ---------------------------------------------------------------------------
+
+function RichTextEditor({ isNew, title, content, onTitleChange, onContentChange, onSave, onClose }) {
+  const editorRef = useRef(null)
+  const [activeFormats, setActiveFormats] = useState({})
+
+  // Initialise the contenteditable with existing content once on mount
+  useEffect(() => {
+    if (editorRef.current) {
+      editorRef.current.innerHTML = content || ''
+      // Move cursor to end
+      const range = document.createRange()
+      const sel = window.getSelection()
+      range.selectNodeContents(editorRef.current)
+      range.collapse(false)
+      sel.removeAllRanges()
+      sel.addRange(range)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Track which formats are active at current selection
+  const updateActiveFormats = () => {
+    setActiveFormats({
+      bold:      document.queryCommandState('bold'),
+      italic:    document.queryCommandState('italic'),
+      bullet:    document.queryCommandState('insertUnorderedList'),
+      ordered:   document.queryCommandState('insertOrderedList'),
+      quote:     document.queryCommandValue('formatBlock') === 'blockquote',
+      heading:   document.queryCommandValue('formatBlock') === 'h2',
+    })
+  }
+
+  // Execute a rich-text command and sync state
+  const exec = (cmd, value) => {
+    editorRef.current?.focus()
+    document.execCommand(cmd, false, value ?? null)
+    onContentChange(editorRef.current?.innerHTML || '')
+    updateActiveFormats()
+  }
+
+  // Wrap selection in an inline <code> element (execCommand has no code cmd)
+  const insertInlineCode = () => {
+    editorRef.current?.focus()
+    const sel = window.getSelection()
+    if (!sel || sel.rangeCount === 0) return
+    const range = sel.getRangeAt(0)
+    if (range.collapsed) {
+      // Insert empty code node with placeholder
+      const code = document.createElement('code')
+      code.textContent = 'code'
+      range.insertNode(code)
+      // Select the placeholder
+      const r2 = document.createRange()
+      r2.selectNodeContents(code)
+      sel.removeAllRanges()
+      sel.addRange(r2)
+    } else {
+      // Wrap selection
+      const code = document.createElement('code')
+      range.surroundContents(code)
+    }
+    onContentChange(editorRef.current?.innerHTML || '')
+  }
+
+  // Toggle heading h2 / back to paragraph
+  const toggleHeading = () => {
+    const current = document.queryCommandValue('formatBlock')
+    exec('formatBlock', current === 'h2' ? 'p' : 'h2')
+  }
+
+  // Toggle blockquote / back to paragraph
+  const toggleQuote = () => {
+    const current = document.queryCommandValue('formatBlock')
+    exec('formatBlock', current === 'blockquote' ? 'p' : 'blockquote')
+  }
+
+  const toolbarGroups = [
+    [
+      { label: 'Bold (Ctrl+B)',    icon: Bold,        action: () => exec('bold'),                   key: 'bold' },
+      { label: 'Italic (Ctrl+I)',  icon: Italic,      action: () => exec('italic'),                 key: 'italic' },
+      { label: 'Heading 2',        icon: Heading2,    action: toggleHeading,                        key: 'heading' },
+    ],
+    [
+      { label: 'Bullet list',      icon: List,        action: () => exec('insertUnorderedList'),    key: 'bullet' },
+      { label: 'Numbered list',    icon: ListOrdered, action: () => exec('insertOrderedList'),      key: 'ordered' },
+      { label: 'Blockquote',       icon: Quote,       action: toggleQuote,                          key: 'quote' },
+    ],
+    [
+      { label: 'Inline code',      icon: Code,        action: insertInlineCode,                     key: 'code' },
+      { label: 'Divider',          icon: Minus,       action: () => exec('insertHorizontalRule'),   key: 'divider' },
+    ],
+  ]
+
+  const handleKeyDown = (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'b') { e.preventDefault(); exec('bold') }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'i') { e.preventDefault(); exec('italic') }
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); onSave() }
+  }
+
+  return (
+    <div className="flex-1 flex flex-col" style={{ minHeight: 0 }}>
+
+      {/* ── Top bar ── */}
+      <div
+        className="flex items-center gap-3 px-5 py-3 border-b flex-shrink-0"
+        style={{
+          borderColor: 'var(--color-border-subtle)',
+          backgroundColor: 'var(--color-surface)',
+        }}
+      >
+        <StickyNote size={15} style={{ color: 'var(--accent-saved)' }} />
+        <span className="text-sm font-semibold flex-1" style={{ color: 'var(--color-text-primary)' }}>
+          {isNew ? 'New Note' : 'Edit Note'}
+        </span>
+        <button
+          onClick={onSave}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
+                     transition-colors duration-150 hover:opacity-90"
+          style={{ backgroundColor: 'var(--color-primary)', color: '#fff' }}
+        >
+          <Save size={12} />
+          Save
+        </button>
+        <button
+          onClick={onClose}
+          className="p-1.5 rounded-lg transition-colors duration-150
+                     text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]
+                     hover:bg-[var(--color-surface-raised)]"
+          aria-label="Discard and close"
+        >
+          <X size={15} />
+        </button>
+      </div>
+
+      {/* ── Editor body ── */}
+      <div
+        className="flex-1 flex flex-col"
+        style={{ backgroundColor: 'var(--color-surface)', minHeight: 0 }}
+      >
+        {/* Title input */}
+        <div className="px-5 pt-5 pb-3">
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => onTitleChange(e.target.value)}
+            placeholder="Note title…"
+            className="w-full bg-transparent font-semibold outline-none border-b pb-3 transition-colors duration-150"
+            style={{
+              fontSize: 'var(--text-h3)',
+              color: 'var(--color-text-primary)',
+              borderColor: 'var(--color-border-subtle)',
+            }}
+            autoFocus
+          />
         </div>
-      ))}
+
+        {/* Formatting toolbar */}
+        <div
+          className="flex items-center gap-0.5 px-4 py-1.5 border-b flex-shrink-0 flex-wrap"
+          style={{
+            borderColor: 'var(--color-border-subtle)',
+            backgroundColor: 'var(--color-surface-raised)',
+          }}
+        >
+          {toolbarGroups.map((group, gi) => (
+            <div key={gi} className="flex items-center gap-0.5">
+              {group.map(({ label, icon, action, key }) => (
+                <ToolbarBtn
+                  key={key}
+                  icon={icon}
+                  label={label}
+                  onClick={action}
+                  active={!!activeFormats[key]}
+                />
+              ))}
+              {gi < toolbarGroups.length - 1 && (
+                <div
+                  className="w-px h-4 mx-1.5 flex-shrink-0"
+                  style={{ backgroundColor: 'var(--color-border-subtle)' }}
+                />
+              )}
+            </div>
+          ))}
+          <span
+            className="ml-auto text-[10px] hidden sm:block select-none"
+            style={{ color: 'var(--color-text-tertiary)' }}
+          >
+            Ctrl+B · Ctrl+I · Ctrl+S
+          </span>
+        </div>
+
+        {/* Contenteditable rich text area */}
+        <div
+          ref={editorRef}
+          contentEditable
+          suppressContentEditableWarning
+          onInput={() => onContentChange(editorRef.current?.innerHTML || '')}
+          onKeyDown={handleKeyDown}
+          onKeyUp={updateActiveFormats}
+          onMouseUp={updateActiveFormats}
+          onSelect={updateActiveFormats}
+          data-placeholder="Write your note…"
+          className="flex-1 outline-none px-5 py-4 overflow-y-auto rich-editor"
+          style={{
+            color: 'var(--color-text-primary)',
+            fontSize: '14px',
+            lineHeight: '1.7',
+            minHeight: '120px',
+          }}
+        />
+      </div>
     </div>
   )
 }
 
-// ─────────────────────────────────────────────────────────────
-//  NOTEBOOK VIEW
-// ─────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
+// NotebookView — main export
+// ---------------------------------------------------------------------------
 
 export default function NotebookView({
   concepts,
@@ -310,61 +290,67 @@ export default function NotebookView({
   onUpdateNote,
   onDeleteNote,
 }) {
-  // null = closed | 'new' = creating | note-id = editing
-  const [editorTarget,  setEditorTarget]  = useState(null)
-  const [editorTitle,   setEditorTitle]   = useState('')
-  const [editorHtml,    setEditorHtml]    = useState('')
-
-  // Ref to the RichEditor's applyFormat method (passed via a callback ref)
-  const applyFormatRef = useRef(null)
-
-  // ── Editor helpers ────────────────────────────────────────────
+  // null = list view | 'new' = creating | note-id = editing
+  const [editorTarget, setEditorTarget] = useState(null)
+  const [editorTitle, setEditorTitle] = useState('')
+  const [editorContent, setEditorContent] = useState('')
 
   const openNew = () => {
     setEditorTarget('new')
     setEditorTitle('')
-    setEditorHtml('')
+    setEditorContent('')
   }
 
   const openEdit = (note) => {
     setEditorTarget(note.id)
     setEditorTitle(note.title)
-    // Support notes saved as plain markdown (old format) — treat as text content
-    // New notes are saved as HTML. Detect HTML by presence of a tag.
-    const content = note.content || ''
-    const isHtml = /<[a-z][\s\S]*>/i.test(content)
-    setEditorHtml(isHtml ? content : plainToHtml(content))
+    // Content is stored as HTML; pass through directly
+    setEditorContent(note.content || '')
   }
 
-  const closeEditor = () => {
+  const closeEditor = useCallback(() => {
     setEditorTarget(null)
     setEditorTitle('')
-    setEditorHtml('')
-  }
+    setEditorContent('')
+  }, [])
 
-  const handleSave = () => {
+  const handleSave = useCallback(() => {
+    const title = editorTitle.trim() || 'Untitled Note'
+    const content = editorContent.trim()
     if (editorTarget === 'new') {
-      onAddNote(editorTitle, editorHtml)
+      onAddNote(title, content)
     } else {
-      onUpdateNote(editorTarget, { title: editorTitle, content: editorHtml })
+      onUpdateNote(editorTarget, { title, content })
     }
     closeEditor()
-  }
+  }, [editorTarget, editorTitle, editorContent, onAddNote, onUpdateNote, closeEditor])
 
   const isEmpty = concepts.length === 0 && personalNotes.length === 0
 
-  // ─────────────────────────────────────────────────────────────
-  //  EMPTY STATE
-  // ─────────────────────────────────────────────────────────────
+  // ── Editor view ────────────────────────────────────────────────
+  if (editorTarget !== null) {
+    return (
+      <RichTextEditor
+        isNew={editorTarget === 'new'}
+        title={editorTitle}
+        content={editorContent}
+        onTitleChange={setEditorTitle}
+        onContentChange={setEditorContent}
+        onSave={handleSave}
+        onClose={closeEditor}
+      />
+    )
+  }
 
-  if (isEmpty && editorTarget === null) {
+  // ── Empty state ───────────────────────────────────────────────
+  if (isEmpty) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center px-4 py-16 text-center">
         <div
-          className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5"
-          style={{ backgroundColor: 'var(--color-primary-tint)' }}
+          className="w-14 h-14 rounded-2xl flex items-center justify-center mb-5"
+          style={{ backgroundColor: 'var(--accent-saved-tint)' }}
         >
-          <BookOpen size={26} style={{ color: 'var(--color-primary)' }} />
+          <BookOpen size={24} style={{ color: 'var(--accent-saved)' }} />
         </div>
         <h2
           className="font-semibold mb-2"
@@ -376,152 +362,70 @@ export default function NotebookView({
           className="max-w-xs leading-relaxed mb-6"
           style={{ fontSize: 'var(--text-body-sm)', color: 'var(--color-text-secondary)' }}
         >
-          Save tutor answers using the bookmark icon, or create your own personal notes.
+          Save tutor answers using the bookmark icon on any response, or write your own notes here.
         </p>
-
         <button
           onClick={openNew}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors duration-200"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium
+                     transition-colors duration-150 hover:opacity-90"
           style={{ backgroundColor: 'var(--color-primary)', color: '#fff' }}
         >
-          <Plus size={15} />
+          <Plus size={14} />
           New Note
         </button>
-
         <div
-          className="mt-4 flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-medium"
+          className="mt-4 flex items-center gap-2 px-4 py-2 rounded-lg border text-[11px]"
           style={{
             color: 'var(--color-text-tertiary)',
             borderColor: 'var(--color-border-subtle)',
             backgroundColor: 'var(--color-surface-raised)',
           }}
         >
-          <Lightbulb size={13} />
-          Tip: hover any tutor answer and click Save
+          <Lightbulb size={12} />
+          <span>Tip: click Save on any tutor answer</span>
         </div>
       </div>
     )
   }
 
-  // ─────────────────────────────────────────────────────────────
-  //  NOTE EDITOR (WYSIWYG)
-  // ─────────────────────────────────────────────────────────────
-
-  if (editorTarget !== null) {
-    return (
-      <div className="flex-1 flex flex-col" style={{ minHeight: 0 }}>
-
-        {/* ── Top bar ── */}
-        <div
-          className="flex items-center gap-3 px-5 py-3 border-b flex-shrink-0"
-          style={{
-            borderColor: 'var(--color-border-subtle)',
-            backgroundColor: 'var(--color-surface)',
-          }}
-        >
-          <StickyNote size={16} style={{ color: 'var(--color-primary)' }} />
-          <span
-            className="text-sm font-semibold flex-1"
-            style={{ color: 'var(--color-text-primary)' }}
-          >
-            {editorTarget === 'new' ? 'New Note' : 'Edit Note'}
-          </span>
-
-          <button
-            onClick={handleSave}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors duration-150"
-            style={{ backgroundColor: 'var(--color-primary)', color: '#fff' }}
-          >
-            <Save size={12} />
-            Save
-          </button>
-
-          <button
-            onClick={closeEditor}
-            className="p-1.5 rounded-lg transition-colors duration-150"
-            style={{ color: 'var(--color-text-tertiary)' }}
-            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--color-text-primary)' }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-tertiary)' }}
-            aria-label="Discard and close"
-          >
-            <X size={15} />
-          </button>
-        </div>
-
-        {/* ── Title ── */}
-        <div
-          className="px-5 py-3 border-b flex-shrink-0"
-          style={{ borderColor: 'var(--color-border-subtle)', backgroundColor: 'var(--color-surface)' }}
-        >
-          <input
-            type="text"
-            value={editorTitle}
-            onChange={(e) => setEditorTitle(e.target.value)}
-            placeholder="Note title…"
-            className="w-full bg-transparent text-lg font-semibold outline-none"
-            style={{ color: 'var(--color-text-primary)' }}
-          />
-        </div>
-
-        {/* ── Formatting toolbar ── */}
-        <FormatToolbar onFormat={(id) => applyFormatRef.current?.(id)} />
-
-        {/* ── WYSIWYG body ── */}
-        <div
-          className="flex-1"
-          style={{ position: 'relative', minHeight: 0, overflow: 'hidden', backgroundColor: 'var(--color-surface)' }}
-        >
-          <RichEditorWithRef
-            html={editorHtml}
-            onChange={setEditorHtml}
-            placeholder={'Start writing…\n\nUse the toolbar above to apply headings, bold, lists, and more.'}
-            applyFormatRef={applyFormatRef}
-          />
-        </div>
-      </div>
-    )
-  }
-
-  // ─────────────────────────────────────────────────────────────
-  //  MAIN NOTEBOOK LIST
-  // ─────────────────────────────────────────────────────────────
-
+  // ── Main list ─────────────────────────────────────────────────
   return (
     <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6">
       <div className="max-w-2xl mx-auto">
 
-        {/* Header row */}
+        {/* Header */}
         <div className="flex items-center gap-3 mb-6">
           <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{ backgroundColor: 'var(--color-primary-tint)' }}
+            className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ backgroundColor: 'var(--accent-saved-tint)' }}
           >
-            <BookOpen size={20} style={{ color: 'var(--color-primary)' }} />
+            <BookOpen size={17} style={{ color: 'var(--accent-saved)' }} />
           </div>
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <h2
               className="font-semibold leading-snug"
               style={{ fontSize: 'var(--text-h3)', color: 'var(--color-text-primary)' }}
             >
               My Notebook
             </h2>
-            <p style={{ fontSize: 'var(--text-caption)', color: 'var(--color-text-secondary)' }}>
-              {personalNotes.length > 0 && `${personalNotes.length} note${personalNotes.length !== 1 ? 's' : ''}`}
-              {personalNotes.length > 0 && concepts.length > 0 && ' · '}
-              {concepts.length > 0 && `${concepts.length} saved concept${concepts.length !== 1 ? 's' : ''}`}
+            <p style={{ fontSize: 'var(--text-caption)', color: 'var(--color-text-tertiary)' }}>
+              {[personalNotes.length > 0 && `${personalNotes.length} note${personalNotes.length !== 1 ? 's' : ''}`,
+                concepts.length > 0 && `${concepts.length} saved concept${concepts.length !== 1 ? 's' : ''}`]
+                .filter(Boolean).join(' · ')}
             </p>
           </div>
           <button
             onClick={openNew}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-colors duration-150"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold
+                       transition-colors duration-150 hover:opacity-90"
             style={{ backgroundColor: 'var(--color-primary)', color: '#fff' }}
           >
-            <Plus size={13} />
+            <Plus size={12} />
             New Note
           </button>
         </div>
 
-        {/* ── Personal Notes ── */}
+        {/* Personal Notes section */}
         {personalNotes.length > 0 && (
           <section className="mb-7">
             <div
@@ -530,7 +434,7 @@ export default function NotebookView({
             >
               Personal Notes
             </div>
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               {personalNotes.map((note) => (
                 <PersonalNoteCard
                   key={note.id}
@@ -543,7 +447,7 @@ export default function NotebookView({
           </section>
         )}
 
-        {/* ── Saved Concepts ── */}
+        {/* Saved Concepts section */}
         {concepts.length > 0 && (
           <section>
             {personalNotes.length > 0 && (
@@ -554,7 +458,7 @@ export default function NotebookView({
                 Saved Concepts
               </div>
             )}
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               {concepts.map((concept) => (
                 <SavedConceptCard
                   key={concept.id}
@@ -571,201 +475,15 @@ export default function NotebookView({
   )
 }
 
-// ─────────────────────────────────────────────────────────────
-//  RichEditor with imperative handle for toolbar
-// ─────────────────────────────────────────────────────────────
-
-/**
- * Wraps RichEditor and exposes applyFormat imperatively via a ref callback
- * so the toolbar (which lives outside the editor) can trigger formats.
- */
-function RichEditorWithRef({ html, onChange, placeholder, applyFormatRef }) {
-  const editorRef = useRef(null)
-  const composingRef = useRef(false)
-  const externalSetRef = useRef(false)
-
-  // Sync html → DOM when the prop changes externally
-  useEffect(() => {
-    const el = editorRef.current
-    if (!el) return
-    if (el.innerHTML !== html) {
-      externalSetRef.current = true
-      el.innerHTML = html || ''
-    }
-  }, [html])
-
-  // Auto-focus
-  useEffect(() => {
-    editorRef.current?.focus()
-  }, [])
-
-  const emitChange = useCallback(() => {
-    if (editorRef.current) onChange(editorRef.current.innerHTML)
-  }, [onChange])
-
-  // Expose applyFormat to parent via ref
-  useEffect(() => {
-    applyFormatRef.current = (id) => {
-      const el = editorRef.current
-      if (!el) return
-      el.focus()
-      applyFormatAction(id, el, emitChange)
-    }
-  }, [applyFormatRef, emitChange])
-
-  const handleInput = useCallback(() => {
-    if (externalSetRef.current) { externalSetRef.current = false; return }
-    if (!composingRef.current) emitChange()
-  }, [emitChange])
-
-  const handleKeyDown = useCallback((e) => {
-    // Exit blockquote on empty line
-    if (e.key === 'Enter') {
-      const sel = window.getSelection()
-      if (sel?.rangeCount) {
-        const block = sel.getRangeAt(0).startContainer.parentElement?.closest('blockquote')
-        if (block && (sel.getRangeAt(0).startContainer.textContent || '').trim() === '') {
-          e.preventDefault()
-          document.execCommand('formatBlock', false, 'P')
-        }
-      }
-    }
-    // Tab for indentation
-    if (e.key === 'Tab') {
-      e.preventDefault()
-      document.execCommand('insertHTML', false, '\u00a0\u00a0\u00a0\u00a0')
-    }
-  }, [])
-
-  const isEmpty = !html || html.replace(/<[^>]*>/g, '').trim() === ''
-
-  return (
-    <div style={{ position: 'relative', flex: 1, height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {isEmpty && (
-        <div
-          aria-hidden="true"
-          style={{
-            position: 'absolute',
-            top: 0, left: 0, right: 0,
-            padding: '20px 24px',
-            pointerEvents: 'none',
-            fontSize: 'var(--text-body)',
-            color: 'var(--color-text-tertiary)',
-            lineHeight: 1.7,
-            userSelect: 'none',
-          }}
-        >
-          Start writing…
-        </div>
-      )}
-      <div
-        ref={editorRef}
-        contentEditable
-        suppressContentEditableWarning
-        onInput={handleInput}
-        onCompositionStart={() => { composingRef.current = true }}
-        onCompositionEnd={() => { composingRef.current = false; emitChange() }}
-        onKeyDown={handleKeyDown}
-        spellCheck
-        style={{
-          outline: 'none',
-          flex: 1,
-          padding: '20px 24px 40px',
-          fontSize: 'var(--text-body)',
-          lineHeight: 1.75,
-          color: 'var(--color-text-primary)',
-          caretColor: 'var(--color-primary)',
-          overflowY: 'auto',
-          boxSizing: 'border-box',
-          wordBreak: 'break-word',
-        }}
-        className="wysiwyg-editor"
-      />
-    </div>
-  )
-}
-
-// ─────────────────────────────────────────────────────────────
-//  FORMAT ACTION — shared logic called by toolbar buttons
-// ─────────────────────────────────────────────────────────────
-
-function applyFormatAction(id, el, emitChange) {
-  switch (id) {
-    case 'h1':
-    case 'h2':
-    case 'h3':
-      document.execCommand('formatBlock', false, id.toUpperCase())
-      break
-
-    case 'blockquote':
-      document.execCommand('formatBlock', false, 'BLOCKQUOTE')
-      break
-
-    case 'code': {
-      const sel = window.getSelection()
-      if (!sel || sel.rangeCount === 0) break
-      const range = sel.getRangeAt(0)
-      const text  = range.toString()
-      const code  = document.createElement('code')
-      // inline styling so it works without external CSS
-      Object.assign(code.style, {
-        fontFamily: '"SF Mono","Fira Code","Cascadia Code",monospace',
-        fontSize: '0.875em',
-        padding: '0.1em 0.4em',
-        borderRadius: '4px',
-        backgroundColor: 'var(--color-surface-raised)',
-        border: '1px solid var(--color-border-subtle)',
-        color: 'var(--color-text-primary)',
-      })
-      code.textContent = text || 'code'
-      range.deleteContents()
-      range.insertNode(code)
-      // Place cursor after the node
-      const after = document.createRange()
-      after.setStartAfter(code)
-      after.collapse(true)
-      sel.removeAllRanges()
-      sel.addRange(after)
-      break
-    }
-
-    case 'hr':
-      document.execCommand('insertHTML', false,
-        '<hr style="border:none;border-top:1px solid var(--color-border);margin:1.25rem 0"><br>')
-      break
-
-    default:
-      // bold, italic, underline, strikethrough,
-      // insertUnorderedList, insertOrderedList
-      document.execCommand(id, false, null)
-      break
-  }
-  emitChange()
-}
-
-// ─────────────────────────────────────────────────────────────
-//  UTILITY — convert old plain-text / markdown notes to HTML
-// ─────────────────────────────────────────────────────────────
-
-function plainToHtml(text) {
-  if (!text) return ''
-  // Very simple: wrap each paragraph in <p>, preserve line breaks
-  return text
-    .split(/\n\n+/)
-    .map(para => `<p>${para.replace(/\n/g, '<br>')}</p>`)
-    .join('')
-}
-
-// ─────────────────────────────────────────────────────────────
-//  PERSONAL NOTE CARD
-// ─────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
+// Personal Note Card
+// ---------------------------------------------------------------------------
 
 function PersonalNoteCard({ note, onEdit, onDelete }) {
   const updatedDate = note.updatedAt
     ? new Date(note.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     : null
 
-  // Strip HTML tags for the snippet preview
   const snippetText = (note.content || '')
     .replace(/<[^>]*>/g, ' ')
     .replace(/\s+/g, ' ')
@@ -773,69 +491,70 @@ function PersonalNoteCard({ note, onEdit, onDelete }) {
 
   return (
     <div
-      className="p-4 rounded-[var(--radius-card)] border group transition-shadow duration-200 hover:shadow-[var(--shadow-card)]"
-      style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}
+      className="p-4 rounded-[var(--radius-card)] border group transition-all duration-200
+                 hover:shadow-[var(--shadow-card)] hover:border-[var(--color-border)]"
+      style={{ borderColor: 'var(--color-border-subtle)', backgroundColor: 'var(--color-surface)' }}
     >
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex items-center gap-2 min-w-0">
-          <StickyNote size={13} className="flex-shrink-0" style={{ color: 'var(--color-primary)' }} />
+          <StickyNote size={12} className="flex-shrink-0" style={{ color: 'var(--accent-saved)' }} />
           <h3
             className="font-medium leading-snug truncate"
-            style={{ fontSize: 'var(--text-body)', color: 'var(--color-text-primary)' }}
+            style={{ fontSize: 'var(--text-body-sm)', color: 'var(--color-text-primary)' }}
           >
             {note.title}
           </h3>
         </div>
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex-shrink-0">
           <button
             onClick={() => onEdit(note)}
-            className="p-1.5 rounded-lg transition-colors duration-200"
-            style={{ color: 'var(--color-text-tertiary)' }}
-            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--color-primary)' }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-tertiary)' }}
+            className="p-1.5 rounded-md transition-colors duration-150
+                       text-[var(--color-text-tertiary)] hover:text-[var(--color-primary)]
+                       hover:bg-[var(--color-primary-tint)]"
             aria-label="Edit note"
           >
-            <Pencil size={13} />
+            <Pencil size={12} />
           </button>
           <button
             onClick={() => onDelete(note.id)}
-            className="p-1.5 rounded-lg transition-colors duration-200 hover:bg-[var(--color-error-tint)]"
-            style={{ color: 'var(--color-text-tertiary)' }}
-            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--color-error)' }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-tertiary)' }}
+            className="p-1.5 rounded-md transition-colors duration-150
+                       text-[var(--color-text-tertiary)] hover:text-[var(--color-error)]
+                       hover:bg-[var(--color-error-tint)]"
             aria-label="Delete note"
           >
-            <Trash2 size={13} />
+            <Trash2 size={12} />
           </button>
         </div>
       </div>
-
       {snippetText && (
         <p
-          className="leading-relaxed mb-2 line-clamp-3"
-          style={{ fontSize: 'var(--text-body-sm)', color: 'var(--color-text-secondary)' }}
+          className="text-[12px] leading-relaxed line-clamp-2"
+          style={{ color: 'var(--color-text-tertiary)' }}
         >
           {snippetText}
         </p>
       )}
-
       {updatedDate && (
-        <span className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
+        <div className="mt-2 text-[10px]" style={{ color: 'var(--color-text-tertiary)', opacity: 0.6 }}>
           Updated {updatedDate}
-        </span>
+        </div>
       )}
     </div>
   )
 }
 
-// ─────────────────────────────────────────────────────────────
-//  SAVED CONCEPT CARD  (unchanged logic)
-// ─────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
+// Saved Concept Card
+// ---------------------------------------------------------------------------
 
 function SavedConceptCard({ concept, onRemove, onOpenSource }) {
-  const handleSourceClick = (citation) => {
-    const resolved = resolveCitation(citation, lectures)
-    if (resolved && onOpenSource) onOpenSource(resolved)
+  const firstCitation = concept.citations?.[0]
+  const resolved = firstCitation ? resolveCitation(firstCitation, lectures) : null
+
+  const handleOpenSource = () => {
+    if (resolved && onOpenSource) {
+      onOpenSource(resolved)
+    }
   }
 
   const savedDate = concept.savedAt
@@ -844,67 +563,56 @@ function SavedConceptCard({ concept, onRemove, onOpenSource }) {
 
   return (
     <div
-      className="p-4 rounded-[var(--radius-card)] border group transition-shadow duration-200 hover:shadow-[var(--shadow-card)]"
-      style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}
+      className="p-4 rounded-[var(--radius-card)] border group transition-all duration-200
+                 hover:shadow-[var(--shadow-card)] hover:border-[var(--color-border)]"
+      style={{ borderColor: 'var(--color-border-subtle)', backgroundColor: 'var(--color-surface)' }}
     >
       {/* Title row */}
       <div className="flex items-start justify-between gap-2 mb-2">
         <h3
           className="font-medium leading-snug"
-          style={{ fontSize: 'var(--text-body)', color: 'var(--color-text-primary)' }}
+          style={{ fontSize: 'var(--text-body-sm)', color: 'var(--color-text-primary)' }}
         >
           {concept.title}
         </h3>
         <button
           onClick={() => onRemove(concept.id)}
-          className="flex-shrink-0 p-1.5 rounded-lg transition-colors duration-200
-                     opacity-0 group-hover:opacity-100
+          className="p-1.5 rounded-md flex-shrink-0 opacity-0 group-hover:opacity-100
+                     transition-all duration-150
+                     text-[var(--color-text-tertiary)] hover:text-[var(--color-error)]
                      hover:bg-[var(--color-error-tint)]"
-          style={{ color: 'var(--color-text-tertiary)' }}
-          onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--color-error)' }}
-          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-tertiary)' }}
           aria-label="Remove from notebook"
         >
-          <Trash2 size={14} />
+          <Trash2 size={12} />
         </button>
       </div>
 
-      {/* Snippet */}
-      <p
-        className="leading-relaxed mb-3 line-clamp-3"
-        style={{ fontSize: 'var(--text-body-sm)', color: 'var(--color-text-secondary)' }}
-      >
-        {concept.snippet?.replace(/[*#`$]/g, '').replace(/\\/g, '').trim()}
-      </p>
+      {/* Excerpt */}
+      {concept.snippet && (
+        <p
+          className="text-[12px] leading-relaxed line-clamp-3 mb-3"
+          style={{ color: 'var(--color-text-secondary)' }}
+        >
+          {concept.snippet}
+        </p>
+      )}
 
-      {/* Footer */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex flex-wrap gap-1.5">
-          {concept.citations?.map((citation, i) => {
-            const resolved = resolveCitation(citation, lectures)
-            if (!resolved) return null
-            return (
-              <button
-                key={i}
-                onClick={() => handleSourceClick(citation)}
-                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium
-                           transition-colors duration-150
-                           hover:bg-[var(--color-primary-tint-hover)]"
-                style={{
-                  backgroundColor: 'var(--color-primary-tint)',
-                  color: 'var(--color-primary)',
-                }}
-                aria-label={`View Week ${resolved.week}, Slide ${citation.slide}`}
-              >
-                <FileText size={11} />
-                W{resolved.week} · S{citation.slide}
-              </button>
-            )
-          })}
-        </div>
-
+      {/* Footer: source link + date */}
+      <div className="flex items-center justify-between">
+        {resolved ? (
+          <button
+            onClick={handleOpenSource}
+            className="flex items-center gap-1 text-[11px] font-medium transition-colors duration-150
+                       text-[var(--color-text-tertiary)] hover:text-[var(--color-primary)]"
+          >
+            <ExternalLink size={11} />
+            Week {resolved.week} · Slide {firstCitation.slide}
+          </button>
+        ) : (
+          <span />
+        )}
         {savedDate && (
-          <span className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
+          <span className="text-[10px]" style={{ color: 'var(--color-text-tertiary)', opacity: 0.5 }}>
             Saved {savedDate}
           </span>
         )}

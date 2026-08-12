@@ -1,8 +1,12 @@
-import { Lightbulb, BookOpen, PanelRightClose, PanelRightOpen, TrendingUp } from 'lucide-react'
+import { BookOpen, PanelRightClose, PanelRightOpen, TrendingUp, Compass } from 'lucide-react'
 import { lectures, totalSlides } from '../../lib/data'
 
 /**
  * LearningSidebar — right column showing learning summary + compact progress.
+ *
+ * Empty state improvements:
+ * - Stats at zero show a helpful hint instead of bare "0"
+ * - "Recently Explored" shows a gentle prompt when empty
  */
 export default function LearningSidebar({
   exploredSlides,
@@ -12,6 +16,7 @@ export default function LearningSidebar({
   onToggleCollapse,
   onViewChange,
   onOpenProgress,
+  onRecentItemClick,
 }) {
   const exploredCount = exploredSlides.size
   const pct = totalSlides > 0 ? Math.round((exploredCount / totalSlides) * 100) : 0
@@ -27,7 +32,7 @@ export default function LearningSidebar({
         <button
           onClick={onToggleCollapse}
           className="p-2 rounded-lg hover:bg-[var(--color-surface-raised)]
-                     text-[var(--color-text-tertiary)] transition-colors duration-200"
+                     text-[var(--color-text-tertiary)] transition-colors duration-150"
           aria-label="Expand learning sidebar"
         >
           <PanelRightOpen size={18} />
@@ -40,13 +45,14 @@ export default function LearningSidebar({
     <div className="flex flex-col h-full border-l border-[var(--color-border)] bg-[var(--color-surface)]">
       {/* Header */}
       <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-[var(--color-border-subtle)]">
-        <span className="text-[10px] font-semibold tracking-wider uppercase text-[var(--color-text-tertiary)]">
+        <span className="text-[10px] font-semibold tracking-widest uppercase"
+              style={{ color: 'var(--color-text-tertiary)' }}>
           Your Learning
         </span>
         <button
           onClick={onToggleCollapse}
           className="p-1.5 rounded-lg hover:bg-[var(--color-surface-raised)]
-                     text-[var(--color-text-tertiary)] transition-colors duration-200"
+                     text-[var(--color-text-tertiary)] transition-colors duration-150"
           aria-label="Collapse learning sidebar"
         >
           <PanelRightClose size={15} />
@@ -54,15 +60,16 @@ export default function LearningSidebar({
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-4 pt-3">
-        {/* Compact progress widget */}
+        {/* Compact progress widget — surface-deep grounds this as a distinct
+            status module, separate from the neutral sidebar surface behind it. */}
         <button
           onClick={onOpenProgress}
-          className="w-full flex items-center gap-3 p-3 rounded-xl border text-left
+          className="w-full flex items-center gap-3 p-3 rounded-[var(--radius-card)] border text-left
                      transition-all duration-200 group
                      hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-tint)]"
           style={{
-            borderColor: 'var(--color-border-subtle)',
-            backgroundColor: 'var(--color-surface-raised)',
+            borderColor: 'var(--surface-deep-border, var(--color-border-subtle))',
+            backgroundColor: 'var(--surface-deep)',
           }}
           aria-label={`View course progress: ${pct}%`}
         >
@@ -75,7 +82,6 @@ export default function LearningSidebar({
                     strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={offset}
                     transform={`rotate(-90 ${cx} ${cy})`}
                     style={{ transition: 'stroke-dashoffset 0.6s cubic-bezier(0.16,1,0.3,1)' }} />
-            {/* Center % */}
             <text x={cx} y={cy + 1} textAnchor="middle" dominantBaseline="middle"
                   fontSize="10" fontWeight="600" fill="var(--color-text-primary)">
               {pct}
@@ -87,7 +93,9 @@ export default function LearningSidebar({
               Course Progress
             </div>
             <div className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
-              {exploredCount}/{totalSlides} slides explored
+              {exploredCount > 0
+                ? `${exploredCount}/${totalSlides} slides explored`
+                : 'Start asking to explore slides'}
             </div>
           </div>
 
@@ -97,51 +105,84 @@ export default function LearningSidebar({
 
         {/* Stats row */}
         <div className="grid grid-cols-2 gap-3">
-          <div className="p-2.5 rounded-xl border"
-               style={{ borderColor: 'var(--color-border-subtle)', backgroundColor: 'var(--color-surface-raised)' }}>
-            <div className="text-xl font-semibold leading-none" style={{ color: 'var(--color-text-primary)' }}>
-              {exploredCount}
-            </div>
-            <div className="mt-0.5 text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
-              slides explored
-            </div>
+          {/* Slides explored */}
+          <div className="p-2.5 rounded-[var(--radius-card)] border"
+               style={{ borderColor: 'var(--color-border-subtle)', backgroundColor: 'var(--stat-box-bg, var(--color-surface-raised))' }}>
+            {exploredCount > 0 ? (
+              <>
+                <div className="text-xl font-semibold leading-none" style={{ color: 'var(--accent-success)' }}>
+                  {exploredCount}
+                </div>
+                <div className="mt-0.5 text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
+                  slides explored
+                </div>
+              </>
+            ) : (
+              /* Empty state: give a hint instead of showing "0" */
+              <>
+                <div className="text-[10px] font-medium leading-relaxed" style={{ color: 'var(--color-text-tertiary)' }}>
+                  No slides explored yet
+                </div>
+                <div className="mt-1 text-[9px]" style={{ color: 'var(--color-text-tertiary)', opacity: 0.6 }}>
+                  Ask a question
+                </div>
+              </>
+            )}
           </div>
+
+          {/* Concepts saved */}
           <button
             onClick={() => onViewChange('learn')}
-            className="p-2.5 rounded-xl border text-left transition-all duration-200
-                       hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-tint)]"
-            style={{ borderColor: 'var(--color-border-subtle)', backgroundColor: 'var(--color-surface-raised)' }}
+            className="p-2.5 rounded-[var(--radius-card)] border text-left transition-all duration-150
+                       hover:border-[var(--accent-saved)] hover:bg-[var(--accent-saved-tint)]"
+            style={{ borderColor: 'var(--color-border-subtle)', backgroundColor: 'var(--stat-box-bg, var(--color-surface-raised))' }}
             aria-label="Open notebook"
           >
-            <div className="text-xl font-semibold leading-none" style={{ color: 'var(--color-text-primary)' }}>
-              {savedCount}
-            </div>
-            <div className="mt-0.5 text-[10px] group-hover:text-[var(--color-primary)] transition-colors"
-                 style={{ color: 'var(--color-text-tertiary)' }}>
-              concepts saved
-            </div>
+            {savedCount > 0 ? (
+              <>
+                <div className="text-xl font-semibold leading-none" style={{ color: 'var(--accent-saved)' }}>
+                  {savedCount}
+                </div>
+                <div className="mt-0.5 text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
+                  concepts saved
+                </div>
+              </>
+            ) : (
+              /* Empty state: guide to the save action */
+              <>
+                <div className="text-[10px] font-medium leading-relaxed" style={{ color: 'var(--color-text-tertiary)' }}>
+                  No concepts saved
+                </div>
+                <div className="mt-1 text-[9px]" style={{ color: 'var(--color-text-tertiary)', opacity: 0.6 }}>
+                  Tap Save on an answer
+                </div>
+              </>
+            )}
           </button>
         </div>
 
         {/* Recently explored */}
-        {recentCitations.length > 0 && (
-          <div>
-            <h3 className="text-[10px] font-semibold tracking-wider uppercase mb-2"
-                style={{ color: 'var(--color-text-tertiary)' }}>
-              Recently Explored
-            </h3>
+        <div>
+          <h3 className="text-[10px] font-semibold tracking-widest uppercase mb-2"
+              style={{ color: 'var(--color-text-tertiary)' }}>
+            Recently Explored
+          </h3>
+
+          {recentCitations.length > 0 ? (
             <div className="space-y-0.5">
               {recentCitations.slice(0, 5).map((item, i) => (
                 <button
                   key={i}
                   onClick={() => onRecentItemClick?.(item)}
-                  className="w-full text-left px-2 py-1.5 rounded-lg hover:bg-[var(--color-surface-raised)]
-                             transition-colors duration-200 cursor-pointer"
+                  className="w-full text-left px-2 py-1.5 rounded-lg
+                             transition-colors duration-150
+                             hover:bg-[var(--color-surface-raised)]
+                             cursor-pointer"
                   aria-label={`Go to Week ${item.week} · Slide ${item.slideNumber}: ${item.title}`}
                 >
                   <div className="flex items-start gap-1.5">
                     <span className="w-1.5 h-1.5 mt-1.5 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: 'var(--color-primary)' }} />
+                          style={{ backgroundColor: 'var(--accent-success)' }} />
                     <div className="min-w-0">
                       <div className="text-[11px] font-medium truncate"
                            style={{ color: 'var(--color-text-secondary)' }}>
@@ -155,10 +196,20 @@ export default function LearningSidebar({
                 </button>
               ))}
             </div>
-          </div>
-        )}
-
-        
+          ) : (
+            /* Empty state for recently explored */
+            <div
+              className="flex items-start gap-2 px-2 py-3 rounded-lg"
+              style={{ backgroundColor: 'var(--color-surface-raised)' }}
+            >
+              <Compass size={13} className="flex-shrink-0 mt-0.5"
+                       style={{ color: 'var(--color-text-tertiary)', opacity: 0.5 }} />
+              <p className="text-[10px] leading-relaxed" style={{ color: 'var(--color-text-tertiary)' }}>
+                Slides you ask about will appear here — useful for revisiting topics without scrolling.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

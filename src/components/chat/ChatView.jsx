@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback, useState } from 'react'
+import React, { useRef, useEffect, useCallback } from 'react'
 import UserMessage from './UserMessage'
 import AssistantMessage from './AssistantMessage'
 import StreamingMessage from './StreamingMessage'
@@ -8,6 +8,7 @@ import DevScenarioTrigger from './DevScenarioTrigger'
 import { useStreamingMessage } from '../../hooks/useStreamingMessage'
 import { matchScenario } from '../../lib/matchScenario'
 import { findTopicResponse, getGenericResponse } from '../../lib/topicResponses'
+
 
 /**
  * ChatView — the main conversation view.
@@ -172,69 +173,80 @@ export default function ChatView({
           onSendPrompt={handleSend}
         />
       ) : (
-        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6">
-          <div className="max-w-3xl mx-auto">
-            {messages.map((msg) => {
-              if (msg.role === 'user') {
-                return <UserMessage key={msg.id} message={msg} />
-              }
+        <>
+          <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6">
+            <div className="max-w-3xl mx-auto">
+              {messages.map((msg, i) => {
+                if (msg.role === 'user') {
+                  return <UserMessage key={msg.id} message={msg} />
+                }
 
-              return (
-                <div key={msg.id} id={`msg-${msg.id}`}>
-                  <AssistantMessage
-                    message={msg}
-                    isSaved={isConceptSaved(msg.id)}
-                    onSave={handleSave}
-                    onOpenSource={onOpenSource}
-                  />
-                  {/* Inline error notice for finalized error messages */}
-                  {msg._streamStatus === 'error' && (
-                    <div className="pl-8 mb-4">
-                      <div
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg border"
-                        style={{
-                          borderColor: 'rgba(220,38,38,0.3)',
-                          backgroundColor: 'var(--color-error-tint)',
-                        }}
-                      >
-                        <span className="text-sm flex-1" style={{ color: 'var(--color-error)' }}>
-                          {msg._streamError || 'Connection lost while generating.'}
-                        </span>
-                        <button
-                          onClick={() => handleRetry(msg._scenarioId)}
-                          className="flex-shrink-0 px-2.5 py-1 rounded-md text-xs font-medium
-                                     transition-colors duration-200"
-                          style={{ color: 'var(--color-primary)' }}
+                return (
+                  <React.Fragment key={msg.id}>
+                    <div id={`msg-${msg.id}`}>
+                      <AssistantMessage
+                        message={msg}
+                        isSaved={isConceptSaved(msg.id)}
+                        onSave={handleSave}
+                        onOpenSource={onOpenSource}
+                      />
+                      {/* Inline error notice for finalized error messages */}
+                      {msg._streamStatus === 'error' && (
+                        <div className="pl-8 mb-4">
+                          <div
+                            className="flex items-center gap-2 px-3 py-2 rounded-lg border"
+                            style={{
+                              borderColor: 'rgba(220,38,38,0.3)',
+                              backgroundColor: 'var(--color-error-tint)',
+                            }}
+                          >
+                            <span className="text-sm flex-1" style={{ color: 'var(--color-error)' }}>
+                              {msg._streamError || 'Connection lost while generating.'}
+                            </span>
+                            <button
+                              onClick={() => handleRetry(msg._scenarioId)}
+                              className="flex-shrink-0 px-2.5 py-1 rounded-md text-xs font-medium
+                                         transition-colors duration-200"
+                              style={{ color: 'var(--color-primary)' }}
+                            >
+                              Retry
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      {msg._streamStatus === 'stopped' && (
+                        <div
+                          className="pl-8 mb-4 text-xs"
+                          style={{ color: 'var(--color-text-tertiary)' }}
                         >
-                          Retry
-                        </button>
-                      </div>
+                          Generation stopped
+                        </div>
+                      )}
                     </div>
-                  )}
-                  {msg._streamStatus === 'stopped' && (
-                    <div
-                      className="pl-8 mb-4 text-xs"
-                      style={{ color: 'var(--color-text-tertiary)' }}
-                    >
-                      Generation stopped
-                    </div>
-                  )}
-                </div>
-              )
-            })}
+                    {/* Separator before next user question */}
+                    {i < messages.length - 1 && messages[i + 1]?.role === 'user' && (
+                      <div className="chat-message-separator" aria-hidden="true" />
+                    )}
+                  </React.Fragment>
+                )
+              })}
 
-            {/* Active streaming message */}
-            {isStreaming && (
-              <StreamingMessage
-                content={streamContent}
-                status={streamStatus}
-                error={streamError}
-              />
-            )}
+              {/* Active streaming message */}
+              {isStreaming && (
+                <StreamingMessage
+                  content={streamContent}
+                  status={streamStatus}
+                  error={streamError}
+                  onRetry={currentScenarioRef.current
+                    ? () => handleRetry(currentScenarioRef.current)
+                    : undefined}
+                />
+              )}
 
-            <div ref={messagesEndRef} />
+              <div ref={messagesEndRef} />
+            </div>
           </div>
-        </div>
+        </>
       )}
 
       {/* Composer — always visible at bottom of chat */}

@@ -1,17 +1,34 @@
 import { AlertTriangle, RotateCcw, StopCircle } from 'lucide-react'
+import { useState, useEffect } from 'react'
 import MarkdownRenderer from '../ui/MarkdownRenderer'
 
 /**
  * StreamingMessage — renders a message that is currently being streamed.
  *
  * Handles all streaming states:
- * - connecting: "Preparing your answer…" with thinking dots
+ * - connecting: "Thinking…" with animated dots; shows elapsed seconds after 2s
+ *   so long-running responses (the 'slow' scenario, 4s+ delay) have meaningful
+ *   feedback rather than a generic spinner.
  * - streaming: progressively rendered content with blinking cursor
  * - done: final content (transition to AssistantMessage happens at the parent)
  * - stopped: partial content with "Generation stopped" notice
  * - error: partial content preserved + inline error with Retry button
  */
 export default function StreamingMessage({ content, status, error, onRetry }) {
+  // Track how long we've been in the connecting state
+  const [connectingSeconds, setConnectingSeconds] = useState(0)
+
+  useEffect(() => {
+    if (status !== 'connecting') {
+      setConnectingSeconds(0)
+      return
+    }
+    const interval = setInterval(() => {
+      setConnectingSeconds(s => s + 1)
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [status])
+
   return (
     <div className="mb-6">
       {/* Tutor indicator */}
@@ -29,7 +46,11 @@ export default function StreamingMessage({ content, status, error, onRetry }) {
         {/* Connecting / thinking state */}
         {status === 'connecting' && !content && (
           <div className="flex items-center gap-1.5 text-[var(--text-body-sm)] text-[var(--color-text-secondary)]">
-            <span>Preparing your answer</span>
+            <span>
+              {connectingSeconds >= 2
+                ? `Thinking… (${connectingSeconds}s)`
+                : 'Thinking'}
+            </span>
             <span className="flex gap-0.5">
               <span className="thinking-dot w-1 h-1 rounded-full bg-[var(--color-text-tertiary)]" />
               <span className="thinking-dot w-1 h-1 rounded-full bg-[var(--color-text-tertiary)]" />

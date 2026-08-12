@@ -60,7 +60,7 @@ export default function App() {
   // STUDENT STATE SELECTOR
   // ============================================================
 
-  // null = show selector screen
+  // null = show selector screen; 'existing' or 'new' = main UI
   const [selectedMode, setSelectedMode] = useState(null)
 
   const handleSelectMode = useCallback((mode) => {

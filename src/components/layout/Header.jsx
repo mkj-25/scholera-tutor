@@ -116,7 +116,9 @@ function ProgressCard({ exploredSlides, savedCount, onClose }) {
             <div className="text-[11px] mt-0.5" style={{ color: 'var(--color-text-tertiary)' }}>
               {exploredCount} / {totalSlides} slides explored
             </div>
-            <div className="text-[11px] mt-0.5" style={{ color: 'var(--color-text-tertiary)' }}>
+            {/* --accent-saved: violet reinforces saved content's identity
+                across the app — same color as the sidebar's concepts-saved stat. */}
+            <div className="text-[11px] mt-0.5" style={{ color: 'var(--accent-saved)' }}>
               {savedCount} concept{savedCount !== 1 ? 's' : ''} saved
             </div>
           </div>
@@ -145,7 +147,10 @@ function ProgressCard({ exploredSlides, savedCount, onClose }) {
                   className="h-full rounded-full transition-all duration-700"
                   style={{
                     width: `${wPct}%`,
-                    backgroundColor: 'var(--color-primary)',
+                    /* --accent-success: per-week bars measure exploration progress
+                       (completion state), not navigation or AI content. Green
+                       distinguishes these from the blue overall-ring summary. */
+                    backgroundColor: 'var(--accent-success)',
                   }}
                 />
               </div>
@@ -319,7 +324,7 @@ export default function Header({
           style={{ color: 'var(--color-text-secondary)' }}
           aria-label="Toggle theme"
         >
-          {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+          {theme === 'dark' ? <Sun size={16} color="#fffc97" /> : <Moon size={16} />}
         </button>
       </div>
     </header>

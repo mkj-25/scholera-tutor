@@ -86,10 +86,15 @@
    ───────────────────────────────────────── */
 
 [data-theme="dark"] {
-  --color-bg: #0b1220;
+  --color-bg: #010610;
   --color-surface: #111827;
   --color-surface-raised: #182231;
   --color-surface-hover: #1d2939;
+
+  /* Deep-background tokens used in the Learning sidebar widgets */
+  --surface-deep: #010610;
+  --surface-deep-border: #1d2939;
+  --stat-box-bg: #010610;
 
   --color-border: #263449;
   --color-border-subtle: #1d2939;
@@ -870,5 +875,123 @@ header.glass-header {
 /* Placeholder empty line */
 .wysiwyg-editor br:only-child {
   display: block;
+}
+
+/* ─────────────────────────────────────────
+   CHAT SEPARATOR
+   Hairline between assistant answer blocks
+   and the next user question.
+   ───────────────────────────────────────── */
+
+.chat-message-separator {
+  height: 1px;
+  margin: 0.25rem 0 1rem;
+  background: var(--color-border-subtle);
+  opacity: 0.5;
+  border: none;
+}
+
+
+/* ─────────────────────────────────────────
+   ASSISTANT MESSAGE — streaming highlight
+   Subtle pulse on new content while streaming
+   so it's visually alive, not static.
+   ───────────────────────────────────────── */
+
+.streaming-cursor::after {
+  content: '';
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  background-color: var(--color-primary);
+  animation: blink-cursor 0.9s step-end infinite;
+}
+
+@keyframes blink-cursor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+
+/* ─────────────────────────────────────────
+   INTERACTIVE ELEMENT BASE
+   Ensure all interactive elements get a
+   smooth transition by default.
+   ───────────────────────────────────────── */
+
+button {
+  transition: opacity 150ms ease, background-color 150ms ease, color 150ms ease,
+              border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+
+/* ─────────────────────────────────────────
+   RICH TEXT EDITOR (NotebookView)
+   Styles for the WYSIWYG contenteditable
+   note editor.
+   ───────────────────────────────────────── */
+
+/* Placeholder */
+.rich-editor:empty:before {
+  content: attr(data-placeholder);
+  color: var(--color-text-tertiary);
+  pointer-events: none;
+}
+
+/* Prose inside the editor */
+.rich-editor h2 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 0.75em 0 0.25em;
+  color: var(--color-text-primary);
+}
+
+.rich-editor ul {
+  list-style: disc;
+  padding-left: 1.4em;
+  margin: 0.4em 0;
+}
+
+.rich-editor ol {
+  list-style: decimal;
+  padding-left: 1.4em;
+  margin: 0.4em 0;
+}
+
+.rich-editor li {
+  margin: 0.15em 0;
+}
+
+.rich-editor blockquote {
+  border-left: 3px solid var(--color-primary);
+  padding-left: 0.85em;
+  margin: 0.5em 0;
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.rich-editor code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.82em;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+  color: var(--color-primary);
+}
+
+.rich-editor hr {
+  border: none;
+  border-top: 1px solid var(--color-border-subtle);
+  margin: 0.75em 0;
+}
+
+.rich-editor p {
+  margin: 0.2em 0;
+}
+
+.rich-editor:focus {
+  outline: none;
 }
 

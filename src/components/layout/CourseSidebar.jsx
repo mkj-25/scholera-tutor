@@ -133,17 +133,20 @@ export default function CourseSidebar({
                   rounded-xl
                   border
                   transition-all
-                  duration-300
+                  duration-200
                   group
                   ${
                     isSelected
                       ? 'course-sidebar-lecture-selected'
-                      : ''
+                      : 'hover:bg-[var(--color-surface-raised)]'
                   }
                 `}
                 style={{
+                  /* --surface-deep: grounds the active/selected lecture as a distinct
+                     status card vs. the transparent inactive items. Blue left bar + badge
+                     still carry the selection signal; the dark surface adds physical weight. */
                   backgroundColor: isSelected
-                    ? 'var(--color-primary-tint)'
+                    ? 'var(--surface-deep)'
                     : 'transparent',
 
                   borderColor: isSelected
@@ -172,7 +175,7 @@ export default function CourseSidebar({
                   className="w-9 h-9 rounded-xl flex-shrink-0
                              flex items-center justify-center
                              text-[10px] font-bold
-                             transition-all duration-300"
+                             transition-all duration-200"
                   style={{
                     backgroundColor: isSelected
                       ? 'var(--color-primary)'
@@ -257,8 +260,9 @@ export default function CourseSidebar({
                       {exploredInWeek > 0 && (
                         <span
                           style={{
-                            color:
-                              'var(--color-primary)',
+                            /* --accent-success: the explored % is a completion
+                               signal, not a nav label, so green is the right color. */
+                            color: 'var(--accent-success)',
                           }}
                         >
                           {lectureProgress}%

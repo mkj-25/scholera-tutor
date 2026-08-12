@@ -43,8 +43,11 @@ export default function CitationCard({
         hover:shadow-[var(--shadow-card)]
       "
       style={{
-        backgroundColor: 'var(--color-surface)',
-        borderColor: 'var(--color-border-subtle)',
+        /* --surface-deep: near-black surface makes citation cards visually
+           lift out of the conversational text above them, signalling that
+           this content comes from a different place (lecture source vs. AI answer). */
+        backgroundColor: 'var(--surface-deep)',
+        borderColor: 'var(--surface-deep-border, var(--color-border-subtle))',
       }}
       aria-label={`View source: Week ${resolved.week}, Slide ${citation.slide} — ${resolved.slide.title}`}
     >

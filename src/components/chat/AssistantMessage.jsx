@@ -4,15 +4,15 @@ import MarkdownRenderer from '../ui/MarkdownRenderer'
 import CitationCard from '../citations/CitationCard'
 
 /**
- * AssistantMessage — renders a tutor response as readable prose.
+ * AssistantMessage — renders a tutor response.
  *
- * Sits directly on the page (not in a card/bubble) with strong typographic hierarchy.
- * Includes: rendered markdown content, citation cards, and a save/bookmark affordance.
- *
- * @param {object} message — from conversation.json or newly streamed
- * @param {boolean} isSaved — whether this concept is already in the notebook
- * @param {function} onSave — called to save this message's concept to notebook
- * @param {function} onOpenSource — called with resolved citation data to open source panel
+ * Visual treatment:
+ * - Tutor label row: small S avatar + "Scholera Tutor" label in caption weight,
+ *   visually lighter than body text so it reads as metadata, not content.
+ * - Content: rendered markdown at body size, full width.
+ * - Citations: below content with a subtle section label.
+ * - Save button: always visible at 40% opacity (tapable on mobile),
+ *   full opacity on hover or when saved.
  */
 export default function AssistantMessage({
   message,
@@ -24,47 +24,48 @@ export default function AssistantMessage({
 
   const handleSave = useCallback(() => {
     if (isSaved || justSaved) return
-
     onSave(message)
     setJustSaved(true)
-
-    // Keep "Saved" label for a short time, then let the isSaved prop take over
     setTimeout(() => setJustSaved(false), 2000)
   }, [isSaved, justSaved, message, onSave])
 
   const hasCitations = message.citations?.length > 0
 
-  const isRefusal =
+  const REFUSAL_PHRASES = [
+    "don't have access",
+    "could not find",
+    "cannot",
+    "i don't know",
+    "i could not",
+    "not in the course",
+    "outside the course",
+    "can only see the course",
+  ]
+  const isLikelyRefusal =
     !hasCitations &&
     message.content &&
-    !message.content.includes('```')
-
-  // Detect refusal-like content
-  const isLikelyRefusal =
-    isRefusal &&
-    (
-      message.content.toLowerCase().includes("don't have access") ||
-      message.content.toLowerCase().includes('could not find') ||
-      message.content.toLowerCase().includes('cannot')
+    REFUSAL_PHRASES.some(phrase =>
+      message.content.toLowerCase().includes(phrase)
     )
 
   return (
-    <div className="group w-full py-5">
-      {/* Tutor indicator */}
-      <div className="flex items-center gap-2 mb-3">
+    <div className="group w-full py-4">
+      {/* Tutor label row — intentionally lightweight metadata treatment */}
+      <div className="flex items-center gap-2 mb-2.5">
+        {/* Avatar: small circle, not a square badge */}
         <div
-          className="w-6 h-6 rounded-lg flex items-center justify-center
-                     text-[11px] font-bold text-white"
+          className="w-5 h-5 rounded-full flex items-center justify-center
+                     text-[10px] font-bold text-white flex-shrink-0"
           style={{ backgroundColor: 'var(--color-primary)' }}
         >
           S
         </div>
 
         <span
-          className="text-[var(--text-caption)] font-medium"
-          style={{ color: 'var(--color-text-secondary)' }}
+          className="text-[11px] font-semibold tracking-wide uppercase"
+          style={{ color: 'var(--color-text-tertiary)' }}
         >
-          Scholera Tutor
+          Tutor
         </span>
 
         {/* Save button */}
@@ -72,13 +73,13 @@ export default function AssistantMessage({
           <button
             onClick={handleSave}
             className={`
-              ml-auto flex items-center gap-1 px-2.5 py-1 rounded-lg
-              text-[var(--text-caption)] font-medium
-              transition-all duration-200
+              ml-auto flex items-center gap-1 px-2 py-1 rounded-md
+              text-[11px] font-medium
+              transition-all duration-150
               ${
                 isSaved || justSaved
-                  ? 'text-[var(--color-primary)] bg-[var(--color-primary-tint)]'
-                  : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-primary)] hover:bg-[var(--color-primary-tint)] opacity-0 group-hover:opacity-100 sm:opacity-0 sm:group-hover:opacity-100'
+                  ? 'text-[var(--accent-saved)] bg-[var(--accent-saved-tint)]'
+                  : 'text-[var(--color-text-tertiary)] opacity-40 hover:opacity-100 hover:text-[var(--accent-saved)] hover:bg-[var(--accent-saved-tint)]'
               }
             `}
             disabled={isSaved || justSaved}
@@ -90,12 +91,12 @@ export default function AssistantMessage({
           >
             {isSaved || justSaved ? (
               <>
-                <BookmarkCheck size={14} />
+                <BookmarkCheck size={13} />
                 <span>Saved</span>
               </>
             ) : (
               <>
-                <Bookmark size={14} />
+                <Bookmark size={13} />
                 <span>Save</span>
               </>
             )}
@@ -103,18 +104,17 @@ export default function AssistantMessage({
         )}
       </div>
 
-      {/* Content */}
-      <div className="pl-8">
+      {/* Content — indented to align with tutor label */}
+      <div className="pl-7">
         <MarkdownRenderer content={message.content} />
 
         {/* Refusal indicator */}
         {isLikelyRefusal && (
           <div
-            className="flex items-center gap-1.5 mt-2
-                       text-[var(--text-caption)]
-                       text-[var(--color-text-tertiary)]"
+            className="flex items-center gap-1.5 mt-2 text-[11px]"
+            style={{ color: 'var(--color-text-tertiary)' }}
           >
-            <AlertCircle size={13} />
+            <AlertCircle size={12} />
             <span>Outside course material</span>
           </div>
         )}

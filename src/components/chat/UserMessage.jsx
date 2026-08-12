@@ -1,16 +1,19 @@
 /**
- * UserMessage — renders a student's message as a right-aligned, tinted bubble.
- * Understated visual treatment to distinguish speaker without heavy chrome.
+ * UserMessage — right-aligned student bubble.
+ * Uses a stronger tint + subtle border so the bubble reads clearly
+ * against the dark background at a glance, without needing to read the text.
  */
 export default function UserMessage({ message }) {
   return (
-    <div className="flex justify-end mb-5">
+    <div className="flex justify-end mb-4">
       <div
-        className="max-w-[85%] sm:max-w-[70%] px-4 py-2.5 rounded-2xl rounded-br-md
+        className="max-w-[82%] sm:max-w-[68%] px-4 py-3 rounded-2xl rounded-br-sm
                    text-[var(--text-body)] leading-relaxed"
         style={{
           backgroundColor: 'var(--color-primary-tint)',
           color: 'var(--color-text-primary)',
+          border: '1px solid color-mix(in srgb, var(--color-primary) 22%, transparent)',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
         }}
       >
         {message.content}
