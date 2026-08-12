@@ -2,12 +2,6 @@ import { useState } from 'react'
 import { BookOpen, ArrowRight, Sparkles, Sun, Moon } from 'lucide-react'
 import scholeraLogo from '../../assets/scholera_logo.png'
 
-/**
- * StudentSelector — entry screen shown before the main tutor interface.
- * Replaces the old AuthScreen. Lets the evaluator choose between the
- * existing-student state (conversation.json) and the new-student state
- * (conversation-empty.json).
- */
 export default function StudentSelector({ onSelect, theme, onToggleTheme }) {
   const [hovered, setHovered] = useState(null)
 
@@ -25,13 +19,7 @@ export default function StudentSelector({ onSelect, theme, onToggleTheme }) {
         }}
       />
 
-      {/* Ambient glow — top */}
-      <div
-        className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[280px] pointer-events-none"
-        style={{
-          background: 'radial-gradient(ellipse at center top, rgba(37,99,235,0.09) 0%, transparent 70%)',
-        }}
-      />
+      
 
       {/* Theme toggle — top right */}
       <button
@@ -55,9 +43,9 @@ export default function StudentSelector({ onSelect, theme, onToggleTheme }) {
       >
         {/* Brand */}
         <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
                 style={{
-                  backgroundColor: 'rgba(170, 184, 255, 0.36)',
+                  backgroundColor: 'rgb(252, 253, 253)',
                   border: '1.5px solid rgba(255, 255, 255, 0.24)',
                   boxShadow: '0 4px 14px rgba(0, 0, 0, 0.15)',
                 }}
@@ -65,9 +53,9 @@ export default function StudentSelector({ onSelect, theme, onToggleTheme }) {
                 <img
                   src={scholeraLogo}
                   alt="Scholera"
-                  className="w-7 h-7 object-contain"
+                  className="w-15 h-15 object-contain"
                   style={{
-                    filter: 'brightness(7) invert(1)',
+                    filter: 'brightness(10) invert(1)',
                   }}
                 />
               </div>
@@ -116,12 +104,7 @@ export default function StudentSelector({ onSelect, theme, onToggleTheme }) {
                 >
                   Continue existing student
                 </div>
-                <div
-                  className="text-[0.8rem] mt-1 leading-relaxed"
-                  style={{ color: 'var(--color-text-secondary)' }}
-                >
-                  Continue a student's existing learning journey — with prior messages, citations, and progress.
-                </div>
+                
               </div>
 
               <ArrowRight
@@ -131,23 +114,7 @@ export default function StudentSelector({ onSelect, theme, onToggleTheme }) {
               />
             </div>
 
-            {/* Badge */}
-            <div className="mt-3 flex items-center gap-1.5">
-              <span
-                className="inline-flex items-center gap-1 text-[0.7rem] font-medium px-2 py-0.5 rounded-full"
-                style={{
-                  backgroundColor: 'var(--color-primary-tint)',
-                  color: 'var(--color-primary)',
-                  border: '1px solid var(--color-primary)',
-                }}
-              >
-                <span
-                  className="w-1.5 h-1.5 rounded-full"
-                  style={{ backgroundColor: 'var(--color-primary)' }}
-                />
-                conversation.json
-              </span>
-            </div>
+            
           </button>
 
           {/* ── Option 2: New student ── */}
@@ -191,12 +158,7 @@ export default function StudentSelector({ onSelect, theme, onToggleTheme }) {
                 >
                   Start as new student
                 </div>
-                <div
-                  className="text-[0.8rem] mt-1 leading-relaxed"
-                  style={{ color: 'var(--color-text-secondary)' }}
-                >
-                  Start with a clean conversation and explore the course from the beginning.
-                </div>
+                
               </div>
 
               <ArrowRight
@@ -206,23 +168,7 @@ export default function StudentSelector({ onSelect, theme, onToggleTheme }) {
               />
             </div>
 
-            {/* Badge */}
-            <div className="mt-3 flex items-center gap-1.5">
-              <span
-                className="inline-flex items-center gap-1 text-[0.7rem] font-medium px-2 py-0.5 rounded-full"
-                style={{
-                  backgroundColor: 'var(--color-surface-raised)',
-                  color: 'var(--color-text-tertiary)',
-                  border: '1px solid var(--color-border-subtle)',
-                }}
-              >
-                <span
-                  className="w-1.5 h-1.5 rounded-full"
-                  style={{ backgroundColor: 'var(--color-text-tertiary)' }}
-                />
-                conversation-empty.json
-              </span>
-            </div>
+            
           </button>
         </div>
 
@@ -231,7 +177,7 @@ export default function StudentSelector({ onSelect, theme, onToggleTheme }) {
           className="text-center text-[0.72rem]"
           style={{ color: 'var(--color-text-tertiary)' }}
         >
-          CS 4780 · Machine Learning for Engineers · Demo
+          CS 4780 · Machine Learning for Engineers
         </p>
       </div>
     </div>

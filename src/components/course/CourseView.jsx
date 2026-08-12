@@ -12,6 +12,7 @@ import {
   lectures,
   totalSlides,
 } from '../../lib/data'
+import tabBg from '../../assets/tab_bg.png'
 
 /**
  * CourseView
@@ -295,6 +296,12 @@ export default function CourseView({
               <div
                 className="px-5 sm:px-6 py-5
                            flex items-start gap-4"
+                style={{
+                  backgroundImage: `url(${tabBg})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  backgroundRepeat: 'no-repeat',
+                }}
               >
                 {/* Week badge */}
 
@@ -339,8 +346,7 @@ export default function CourseView({
                     <h2
                       className="text-lg font-semibold"
                       style={{
-                        color:
-                          'var(--color-text-primary)',
+                        color: '#000',
                       }}
                     >
                       Week {lecture.week}
@@ -372,8 +378,7 @@ export default function CourseView({
                   <p
                     className="text-sm mt-1"
                     style={{
-                      color:
-                        'var(--color-text-secondary)',
+                      color: '#000',
                     }}
                   >
                     {lecture.title}
@@ -390,8 +395,7 @@ export default function CourseView({
                     >
                       <span
                         style={{
-                          color:
-                            'var(--color-text-tertiary)',
+                          color: '#000',
                         }}
                       >
                         {exploredInWeek} of{' '}
@@ -401,8 +405,7 @@ export default function CourseView({
 
                       <span
                         style={{
-                          color:
-                            'var(--color-primary)',
+                          color: '#000',
                         }}
                       >
                         {weekProgress}%
