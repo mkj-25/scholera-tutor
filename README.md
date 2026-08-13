@@ -4,6 +4,10 @@ A course-specific AI tutor interface, not a general chatbot. Every answer is gro
 
 ---
 
+**Live Demo:** [Open Scholera Tutor](https://scholera-tutor.vercel.app/)
+
+---
+
 ## Setup
 
 **Prerequisites:** Node.js 18+ and npm (included with Node).
