@@ -123,6 +123,7 @@ scholera-tutor/
 ├── package.json
 └── vite.config.js
 
+```
 ---
 
 ## What I Deliberately Left Out
