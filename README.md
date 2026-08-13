@@ -1,6 +1,6 @@
-# Scholera Tutor — CS 4780
+# Scholera Tutor
 
-A course-specific AI tutor interface for CS 4780, not a general chatbot. Every answer is grounded in the actual lecture material and traceable back to the exact slide it came from. The goal was to build something that respects what makes a *course tutor* different from a generic assistant: the ability to verify answers against what was actually taught.
+A course-specific AI tutor interface, not a general chatbot. Every answer is grounded in the actual lecture material and traceable back to the exact slide it came from. The goal was to build something that respects what makes a *course tutor* different from a generic assistant: the ability to verify answers against what was actually taught.
 
 ---
 
