@@ -7,8 +7,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { Copy, Check } from 'lucide-react'
 
 /**
- * A custom theme built with CSS variables so it responds to light/dark mode.
- * Minimal and clean — avoids the heavy look of pre-built themes.
+ * theme light/dark mode.
  */
 const codeTheme = {
   'pre[class*="language-"]': {
@@ -40,7 +39,7 @@ const codeTheme = {
 }
 
 /**
- * CopyButton — copies code to clipboard with brief visual confirmation.
+ * CopyButton - if any code is there in tutor's response
  */
 function CopyButton({ text }) {
   const [copied, setCopied] = useState(false)
@@ -51,7 +50,7 @@ function CopyButton({ text }) {
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
     } catch {
-      // Clipboard API may not be available — fail silently
+      // Clipboard API may not be available - fail silently
     }
   }, [text])
 
@@ -126,7 +125,7 @@ function makeComponents() {
       )
     },
 
-    // Paragraphs — prevent nesting block elements inside <p>
+    // Paragraphs - prevent nesting block elements inside <p>
     p({ children }) {
       return <p>{children}</p>
     },
@@ -134,14 +133,14 @@ function makeComponents() {
 }
 
 /**
- * MarkdownRenderer — renders markdown content with LaTeX, code highlighting, and tables.
+ * MarkdownRenderer - renders markdown content with LaTeX, code highlighting, and tables.
  *
  * Handles partial/streaming content defensively: if a render pass would error on
  * incomplete markdown, React's error boundary or the try-catch in remarkMath
  * will keep the last-good render visible.
  *
- * @param {string} content — markdown string to render
- * @param {boolean} isStreaming — if true, shows a blinking cursor at the end
+ * @param {string} content - markdown string to render
+ * @param {boolean} isStreaming - if true, shows a blinking cursor at the end
  */
 export default function MarkdownRenderer({ content, isStreaming = false }) {
   const components = useMemo(makeComponents, [])

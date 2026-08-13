@@ -2,18 +2,8 @@ import { AlertTriangle, RotateCcw, StopCircle } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import MarkdownRenderer from '../ui/MarkdownRenderer'
 
-/**
- * StreamingMessage — renders a message that is currently being streamed.
- *
- * Handles all streaming states:
- * - connecting: "Thinking…" with animated dots; shows elapsed seconds after 2s
- *   so long-running responses (the 'slow' scenario, 4s+ delay) have meaningful
- *   feedback rather than a generic spinner.
- * - streaming: progressively rendered content with blinking cursor
- * - done: final content (transition to AssistantMessage happens at the parent)
- * - stopped: partial content with "Generation stopped" notice
- * - error: partial content preserved + inline error with Retry button
- */
+//renders a message currently being streamed and handles streaming states
+
 export default function StreamingMessage({ content, status, error, onRetry }) {
   // Track how long we've been in the connecting state
   const [connectingSeconds, setConnectingSeconds] = useState(0)
@@ -75,7 +65,7 @@ export default function StreamingMessage({ content, status, error, onRetry }) {
           </div>
         )}
 
-        {/* Error — mid-stream failure */}
+        {/* Error : mid-stream failure */}
         {status === 'error' && (
           <div className="flex items-center gap-2 mt-3 px-3 py-2 rounded-lg
                           border border-[var(--color-error)] bg-[var(--color-error-tint)]"

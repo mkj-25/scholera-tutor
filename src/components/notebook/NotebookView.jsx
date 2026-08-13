@@ -21,9 +21,7 @@ import {
 import { resolveCitation } from '../../lib/resolveCitation'
 import { lectures } from '../../lib/data'
 
-// ---------------------------------------------------------------------------
 // Toolbar button
-// ---------------------------------------------------------------------------
 
 function ToolbarBtn({ icon: Icon, label, onClick, active }) {
   return (
@@ -59,9 +57,7 @@ function ToolbarBtn({ icon: Icon, label, onClick, active }) {
   )
 }
 
-// ---------------------------------------------------------------------------
 // Rich text editor (WYSIWYG via contenteditable + execCommand)
-// ---------------------------------------------------------------------------
 
 function RichTextEditor({ isNew, title, content, onTitleChange, onContentChange, onSave, onClose }) {
   const editorRef = useRef(null)
@@ -164,7 +160,7 @@ function RichTextEditor({ isNew, title, content, onTitleChange, onContentChange,
   return (
     <div className="flex-1 flex flex-col" style={{ minHeight: 0 }}>
 
-      {/* ── Top bar ── */}
+      {/* Top bar */}
       <div
         className="flex items-center gap-3 px-5 py-3 border-b flex-shrink-0"
         style={{
@@ -196,7 +192,7 @@ function RichTextEditor({ isNew, title, content, onTitleChange, onContentChange,
         </button>
       </div>
 
-      {/* ── Editor body ── */}
+      {/* Editor body */}
       <div
         className="flex-1 flex flex-col"
         style={{ backgroundColor: 'var(--color-surface)', minHeight: 0 }}
@@ -277,9 +273,7 @@ function RichTextEditor({ isNew, title, content, onTitleChange, onContentChange,
   )
 }
 
-// ---------------------------------------------------------------------------
-// NotebookView — main export
-// ---------------------------------------------------------------------------
+// NotebookView - main export
 
 export default function NotebookView({
   concepts,
@@ -327,7 +321,7 @@ export default function NotebookView({
 
   const isEmpty = concepts.length === 0 && personalNotes.length === 0
 
-  // ── Editor view ────────────────────────────────────────────────
+  // Editor view
   if (editorTarget !== null) {
     return (
       <RichTextEditor
@@ -342,7 +336,7 @@ export default function NotebookView({
     )
   }
 
-  // ── Empty state ───────────────────────────────────────────────
+  // Empty state
   if (isEmpty) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center px-4 py-16 text-center">
@@ -388,7 +382,7 @@ export default function NotebookView({
     )
   }
 
-  // ── Main list ─────────────────────────────────────────────────
+  // Main list
   return (
     <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6">
       <div className="max-w-2xl mx-auto">
@@ -475,9 +469,7 @@ export default function NotebookView({
   )
 }
 
-// ---------------------------------------------------------------------------
 // Personal Note Card
-// ---------------------------------------------------------------------------
 
 function PersonalNoteCard({ note, onEdit, onDelete }) {
   const updatedDate = note.updatedAt
@@ -543,9 +535,7 @@ function PersonalNoteCard({ note, onEdit, onDelete }) {
   )
 }
 
-// ---------------------------------------------------------------------------
 // Saved Concept Card
-// ---------------------------------------------------------------------------
 
 function SavedConceptCard({ concept, onRemove, onOpenSource }) {
   const firstCitation = concept.citations?.[0]

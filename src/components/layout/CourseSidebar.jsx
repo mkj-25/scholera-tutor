@@ -68,9 +68,7 @@ export default function CourseSidebar({
         </p>
       </div>
 
-      {/* =====================================================
-          LECTURES
-      ====================================================== */}
+      {/* LECTURES */}
 
       <div className="flex-1 overflow-y-auto px-3 py-5">
 

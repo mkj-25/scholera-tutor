@@ -1,13 +1,3 @@
-/**
- * topicResponses — provides varied, topic-aware responses for free-typed questions.
- *
- * When matchScenario returns 'plain' (the fallback), this module picks a more
- * relevant response based on keyword analysis of the user's question.
- *
- * Each topic response includes text and citations that map to actual lecture data.
- * This gives the impression of intelligent responses without any real AI backend.
- */
-
 const TOPIC_RESPONSES = [
   {
     id: 'topic-linear-regression',
@@ -103,7 +93,6 @@ const TOPIC_RESPONSES = [
 
 /**
  * Generic fallback responses when no specific topic matches.
- * Rotated based on a hash of the input to avoid repetition.
  */
 const GENERIC_RESPONSES = [
   {

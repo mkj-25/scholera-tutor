@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 
 /**
- * useTheme — manages light/dark theme with localStorage persistence.
+ * useTheme - manages light/dark theme with localStorage persistence.
  *
  * Reads initial preference from:
  * 1. localStorage 'scholera-theme' key

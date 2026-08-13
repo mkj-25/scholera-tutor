@@ -1,8 +1,4 @@
-/**
- * Maps a citation object { lecture, slide } to the matching lecture/slide
- * objects from the lectures array. Matches by extracting the title after the
- * "Week N — " prefix, falling back to week-number matching.
- */
+
 
 /**
  * @param {{ lecture: string, slide: number }} citation
@@ -12,7 +8,7 @@
 export function resolveCitation(citation, lectures) {
   if (!citation || !citation.lecture || !lectures) return null
 
-  // The citation lecture string looks like "Week 2 — Gradient Descent and Backpropagation"
+  // The citation lecture string looks like "Week 2 - Gradient Descent and Backpropagation"
   // Extract the title part after the em dash
   const dashIndex = citation.lecture.indexOf('—')
   const citationTitle = dashIndex !== -1
@@ -23,7 +19,7 @@ export function resolveCitation(citation, lectures) {
   const weekMatch = citation.lecture.match(/Week\s+(\d+)/)
   const citationWeek = weekMatch ? parseInt(weekMatch[1], 10) : null
 
-  // Find the matching lecture — try title match first, fall back to week match
+  // Find the matching lecture : try title match first, fall back to week match
   const lecture = lectures.find(lec => {
     if (lec.title === citationTitle) return true
     if (citationWeek !== null && lec.week === citationWeek) return true

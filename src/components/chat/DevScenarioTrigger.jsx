@@ -3,7 +3,7 @@ import { EXACT_PROMPTS } from '../../lib/matchScenario'
 import { Beaker, ChevronDown, ChevronUp } from 'lucide-react'
 
 /**
- * DevScenarioTrigger — developer-only panel for testing all 8 streaming scenarios.
+ * DevScenarioTrigger : developer-only panel for testing all 8 streaming scenarios.
  *
  * Only visible when the URL has ?dev=1.
  * Not visible in the polished default UI.

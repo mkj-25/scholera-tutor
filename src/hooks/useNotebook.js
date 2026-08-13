@@ -1,8 +1,7 @@
 import { useState, useCallback } from 'react'
 
 /**
- * Manages saved concepts and personal notes with localStorage persistence.
- * Concepts are saved from assistant messages; notes are user-authored rich text.
+ * Manages saved concepts and notes with localStorage persistence.
  */
 
 const STORAGE_KEY = 'scholera-notebook'
@@ -21,7 +20,7 @@ function persistConcepts(concepts) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(concepts))
   } catch {
-    // Storage full or unavailable — fail silently
+    // Storage full or unavailable - fail silently
   }
 }
 
@@ -46,7 +45,7 @@ export function useNotebook() {
   const [concepts, setConcepts] = useState(loadSavedConcepts)
   const [personalNotes, setPersonalNotes] = useState(loadPersonalNotes)
 
-  // ── Saved Concepts ──────────────────────────────────────────
+  // Saved Concepts
 
   const saveConcept = useCallback((concept) => {
     setConcepts(prev => {
@@ -76,7 +75,7 @@ export function useNotebook() {
     return concepts.some(c => c.messageId === messageId)
   }, [concepts])
 
-  // ── Personal Notes ──────────────────────────────────────────
+  // Personal Notes
 
   const addNote = useCallback((title, content) => {
     const newNote = {

@@ -3,8 +3,8 @@ import { useState, useRef, useCallback } from 'react'
 /**
  * Simulates streamed AI responses via a character-chunking approach.
  * Supports two modes:
- * - startStream(scenarioId) — streams a predefined mock scenario
- * - startTextStream(text, citations) — streams arbitrary text with given citations
+ * - startStream(scenarioId) - streams a predefined mock scenario
+ * - startTextStream(text, citations) - streams arbitrary text with given citations
  * Status values: 'idle' | 'connecting' | 'streaming' | 'done' | 'stopped' | 'error'
  */
 

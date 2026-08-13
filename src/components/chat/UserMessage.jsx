@@ -1,8 +1,3 @@
-/**
- * UserMessage — right-aligned student bubble.
- * Uses a stronger tint + subtle border so the bubble reads clearly
- * against the dark background at a glance, without needing to read the text.
- */
 export default function UserMessage({ message }) {
   return (
     <div className="flex justify-end mb-4">

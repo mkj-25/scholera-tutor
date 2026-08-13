@@ -1,5 +1,5 @@
 /**
- * Data loaders — re-export provided data files.
+ * Data loaders : re-export provided data files.
  * 
  * These import from the /data directory at the project root via the @data alias.
  * The conversation and lecture data is the immutable source of truth.

@@ -1,13 +1,6 @@
 import { BookOpen, PanelRightClose, PanelRightOpen, TrendingUp, Compass } from 'lucide-react'
 import { lectures, totalSlides } from '../../lib/data'
 
-/**
- * LearningSidebar — right column showing learning summary + compact progress.
- *
- * Empty state improvements:
- * - Stats at zero show a helpful hint instead of bare "0"
- * - "Recently Explored" shows a gentle prompt when empty
- */
 export default function LearningSidebar({
   exploredSlides,
   savedCount,
@@ -60,7 +53,7 @@ export default function LearningSidebar({
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-4 pt-3">
-        {/* Progress widget — opens the detailed progress card */}
+        {/* Progress widget */}
         <button
           onClick={onOpenProgress}
           className="w-full flex items-center gap-3 p-3 rounded-[var(--radius-card)] border text-left
@@ -117,7 +110,7 @@ export default function LearningSidebar({
                 </div>
               </>
             ) : (
-              /* Empty state: give a hint instead of showing "0" */
+              /* Empty state */
               <>
                 <div className="text-[10px] font-medium leading-relaxed" style={{ color: 'var(--color-text-tertiary)' }}>
                   No slides explored yet
@@ -147,7 +140,7 @@ export default function LearningSidebar({
                 </div>
               </>
             ) : (
-              /* Empty state: guide to the save action */
+              /* Empty state */
               <>
                 <div className="text-[10px] font-medium leading-relaxed" style={{ color: 'var(--color-text-tertiary)' }}>
                   No concepts saved

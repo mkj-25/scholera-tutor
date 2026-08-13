@@ -1,15 +1,8 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { Send, Square } from 'lucide-react'
 
-/**
- * Composer — floating glass input bar.
- *
- * - Floats above the message area with no background panel
- * - Rounded card with glass blur + shadow
- * - Focus: subtle blue ring
- * - Streaming: send → stop button
- * - Keyboard: Enter to send, Shift+Enter for newline
- */
+//Composer - floating glass input bar.
+
 export default function Composer({ onSend, onStop, isStreaming, disabled }) {
   const [input, setInput] = useState('')
   const [focused, setFocused] = useState(false)
@@ -46,7 +39,7 @@ export default function Composer({ onSend, onStop, isStreaming, disabled }) {
     <div className="px-4 pb-4 pt-2 sm:px-6">
       <div className="max-w-3xl mx-auto">
 
-        {/* Floating glass card — no background panel behind it */}
+        {/* Floating glass card */}
         <div
           className="flex items-end gap-2 rounded-2xl px-3.5 py-2 transition-all duration-200"
           style={{

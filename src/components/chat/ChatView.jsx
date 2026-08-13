@@ -10,13 +10,6 @@ import { matchScenario } from '../../lib/matchScenario'
 import { findTopicResponse, getGenericResponse } from '../../lib/topicResponses'
 
 
-/**
- * ChatView — the main conversation view.
- *
- * Manages the message list, streaming state, and composer.
- * Renders EmptyState when conversation has no messages, but always shows
- * the composer at the bottom so the student can start typing immediately.
- */
 export default function ChatView({
   conversation,
   messages,
@@ -53,7 +46,7 @@ export default function ChatView({
     scrollToBottom()
   }, [messages.length, scrollToBottom])
 
-  // Scroll during streaming (throttled — only when content changes)
+  // Scroll during streaming (throttled - only when content changes)
   useEffect(() => {
     if (streamStatus === 'streaming') {
       scrollToBottom()
@@ -120,7 +113,7 @@ export default function ChatView({
         currentScenarioRef.current = topicResponse.id
         startTextStream(topicResponse.text, topicResponse.citations)
       } else {
-        // Varied generic fallback — avoids always returning same 'plain' scenario
+        // Varied generic fallback - avoids always returning same 'plain' scenario
         const genericResponse = getGenericResponse(text)
         currentScenarioRef.current = genericResponse.id
         startTextStream(genericResponse.text, genericResponse.citations)
@@ -249,7 +242,7 @@ export default function ChatView({
         </>
       )}
 
-      {/* Composer — always visible at bottom of chat */}
+      {/* Composer - always visible at bottom of chat */}
       <Composer
         onSend={handleSend}
         onStop={abort}

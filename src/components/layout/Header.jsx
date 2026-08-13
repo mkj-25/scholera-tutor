@@ -46,7 +46,7 @@ function ProgressCard({ exploredSlides, savedCount, onClose }) {
     return { week: lec.week, explored: exploredWeek, total: weekSlides, pct: weekPct }
   })
 
-  // "What's next" — least explored week
+  // "What's next" - least explored week
   const nextWeek = weekStats.reduce((min, w) =>
     w.pct < min.pct ? w : min, weekStats[0])
 
@@ -175,7 +175,7 @@ function ProgressCard({ exploredSlides, savedCount, onClose }) {
   )
 }
 
-// ── Header ────────────────────────────────────────────────────────────────────
+// Header
 
 export default function Header({
   activeView = 'chat',

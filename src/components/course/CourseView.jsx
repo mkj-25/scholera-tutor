@@ -15,19 +15,17 @@ import {
 import tabBg from '../../assets/tab_bg.png'
 
 /**
- * CourseView — shows all lectures and their slides with per-week progress.
- * Auto-scrolls to selectedWeek when navigating from the CourseSidebar.
- * Clicking a slide opens the SourcePanel via onOpenSlide.
+ * CourseView
+ * autoscroll also
  */
 export default function CourseView({
   exploredSlides,
   selectedWeek,
   onOpenSlide,
 }) {
-  // ============================================================
+  
   // TOTAL PROGRESS
-  // ============================================================
-
+  
   const exploredCount =
     exploredSlides?.size ?? 0
 
@@ -38,9 +36,8 @@ export default function CourseView({
         )
       : 0
 
-  // ============================================================
   // AUTO-SCROLL TO SELECTED WEEK
-  // ============================================================
+  
 
   // Map week number -> section DOM element
   const weekRefs = useRef({})
@@ -52,7 +49,7 @@ export default function CourseView({
 
     // Small delay so the view has mounted/transitioned in
     const timer = setTimeout(() => {
-      const HEADER_OFFSET = 80 // px — clears the fixed header
+      const HEADER_OFFSET = 80 // px - clears the fixed header
       const rect = el.getBoundingClientRect()
       const scrollParent = el.closest('.overflow-y-auto')
       if (scrollParent) {
@@ -85,7 +82,7 @@ export default function CourseView({
         backgroundColor: 'var(--color-bg)',
       }}
     >
-      {/* Course hero — title, description, and overall progress bar */}
+      {/* Course hero - title, description, and overall progress bar */}
 
       <section
         className="relative overflow-hidden
@@ -330,7 +327,7 @@ export default function CourseView({
                     <h2
                       className="text-lg font-semibold"
                       style={{
-                        color: '#000',
+                        color: '#fcfdf9',
                       }}
                     >
                       Week {lecture.week}
@@ -362,7 +359,7 @@ export default function CourseView({
                   <p
                     className="text-sm mt-1"
                     style={{
-                      color: '#000',
+                      color: '#fdfdfd',
                     }}
                   >
                     {lecture.title}
@@ -379,7 +376,7 @@ export default function CourseView({
                     >
                       <span
                         style={{
-                          color: '#000',
+                          color: '#9fddfe',
                         }}
                       >
                         {exploredInWeek} of{' '}
@@ -389,7 +386,7 @@ export default function CourseView({
 
                       <span
                         style={{
-                          color: '#000',
+                          color: '#ffffff',
                         }}
                       >
                         {weekProgress}%

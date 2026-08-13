@@ -3,17 +3,9 @@ import { Bookmark, BookmarkCheck, AlertCircle } from 'lucide-react'
 import MarkdownRenderer from '../ui/MarkdownRenderer'
 import CitationCard from '../citations/CitationCard'
 
-/**
- * AssistantMessage — renders a tutor response.
- *
- * Visual treatment:
- * - Tutor label row: small S avatar + "Scholera Tutor" label in caption weight,
- *   visually lighter than body text so it reads as metadata, not content.
- * - Content: rendered markdown at body size, full width.
- * - Citations: below content with a subtle section label.
- * - Save button: always visible at 40% opacity (tapable on mobile),
- *   full opacity on hover or when saved.
- */
+
+// renders a tutor response.
+ 
 export default function AssistantMessage({
   message,
   isSaved,
@@ -50,9 +42,9 @@ export default function AssistantMessage({
 
   return (
     <div className="group w-full py-4">
-      {/* Tutor label row — intentionally lightweight metadata treatment */}
+      {/* Tutor label row */}
       <div className="flex items-center gap-2 mb-2.5">
-        {/* Avatar: small circle, not a square badge */}
+        {/* Avatar */}
         <div
           className="w-5 h-5 rounded-full flex items-center justify-center
                      text-[10px] font-bold text-white flex-shrink-0"
@@ -104,7 +96,7 @@ export default function AssistantMessage({
         )}
       </div>
 
-      {/* Content — indented to align with tutor label */}
+      {/* Content  */}
       <div className="pl-7">
         <MarkdownRenderer content={message.content} />
 

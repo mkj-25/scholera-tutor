@@ -19,7 +19,7 @@ export default function StudentSelector({ onSelect, theme, onToggleTheme }) {
         }}
       />
 
-      {/* Theme toggle — top right */}
+      {/* Theme toggle  */}
       <button
         id="selector-theme-toggle"
         onClick={onToggleTheme}
@@ -61,7 +61,7 @@ export default function StudentSelector({ onSelect, theme, onToggleTheme }) {
         {/* Option cards */}
         <div className="w-full flex flex-col gap-3">
 
-          {/* ── Option 1: Existing student ── */}
+          {/* Option 1: Existing student */}
           <button
             id="selector-existing-student"
             onClick={() => onSelect('existing')}
@@ -113,7 +113,7 @@ export default function StudentSelector({ onSelect, theme, onToggleTheme }) {
             </div>
           </button>
 
-          {/* ── Option 2: New student ── */}
+          {/* Option 2: New student */}
           <button
             id="selector-new-student"
             onClick={() => onSelect('new')}
